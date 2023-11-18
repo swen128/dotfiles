@@ -8,24 +8,10 @@ if OS.mac?
 
     brew "noti" # utility to display notifications from scripts
     brew "trash" # rm, but put in the trash rather than completely delete
-
-    # Applications
-    cask "kitty" # a better terminal emulator
-    cask "imageoptim" # a tool to optimize images
-    cask "1password/tap/1password-cli"
-    cask "wezterm" # a better terminal emulator
-
     # yabai
     brew "yabai"
     brew "skhd"
 
-    # Fonts
-    cask "font-fira-code"
-    cask "font-jetbrains-mono"
-    cask "font-cascadia-mono"
-    cask "font-symbols-only-nerd-font"
-    cask "font-recursive-code"
-    cask "font-monaspace"
 elsif OS.linux?
     brew "xclip" # access to clipboard (similar to pbcopy/pbpaste)
 end
@@ -42,8 +28,8 @@ brew "fd" # find alternative
 brew "fnm" # Fast Node version manager
 brew "fzf" # Fuzzy file searcher, used in scripts and in vim
 brew "gh" # GitHub CLI
-brew "git" # Git version control (latest version)
 brew "git-delta" # a better git diff
+brew "git-secrets" # prevents secret values to Git repo
 brew "glow" # markdown viewer
 brew "gnupg" # GPG
 brew "grep" # grep (latest)
@@ -56,9 +42,7 @@ brew "neovim" # A better vim
 brew "python" # python (latest)
 brew "ripgrep" # very fast file searcher
 brew "shellcheck" # diagnostics for shell sripts
-brew "tmux" # terminal multiplexer
 brew "tree" # pretty-print directory contents
-brew "vim" # Vim (latest)
 brew "wdiff" # word differences in text files
 brew "wget" # internet file retriever
 brew "z" # switch between most used directories
