@@ -1,10 +1,13 @@
 # vim:ft=gitconfig
+[user]
+    email = {{ .email }}
+    name = {{ .name }}
 [init]
     defaultBranch = main
 [include]
     # A local gitconfig, outside of version control.
     # If the file doesn't exist it is silently ignored
-    path = ~/.gitconfig-local
+    path = ~/.config/git/config-local
 [alias]
     # list all aliases
     la = "!git config -l | grep alias | cut -c 7-"
@@ -105,6 +108,8 @@
     rg = "!sh -c 'git ls-files --others --exclude-standard | grep $1 | xargs rm' -"
 
     remotes = remote -v
+[log]
+    date = iso
 [color]
     diff = auto
     status = auto
@@ -177,3 +182,10 @@
 [rebase]
     instructionFormat = "[%an - %ar] %s"
     autoStash = true
+[secrets]
+    providers = git secrets --aws-provider
+    patterns = (A3T[A-Z0-9]|AKIA|AGPA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}
+    patterns = (\"|')?(AWS|aws|Aws)?_?(SECRET|secret|Secret)?_?(ACCESS|access|Access)?_?(KEY|key|Key)(\"|')?\\s*(:|=>|=)\\s*(\"|')?[A-Za-z0-9/\\+=]{40}(\"|')?
+    patterns = (\"|')?(AWS|aws|Aws)?_?(ACCOUNT|account|Account)_?(ID|id|Id)?(\"|')?\\s*(:|=>|=)\\s*(\"|')?[0-9]{4}\\-?[0-9]{4}\\-?[0-9]{4}(\"|')?
+    allowed = AKIAIOSFODNN7EXAMPLE
+    allowed = wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY

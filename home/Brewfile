@@ -29,7 +29,7 @@ brew "fnm" # Fast Node version manager
 brew "fzf" # Fuzzy file searcher, used in scripts and in vim
 brew "gh" # GitHub CLI
 brew "git-delta" # a better git diff
-brew "git-secrets" # prevents secret values to Git repo
+brew "git-secrets" # prevents secret values geting into Git repo
 brew "glow" # markdown viewer
 brew "gnupg" # GPG
 brew "grep" # grep (latest)
