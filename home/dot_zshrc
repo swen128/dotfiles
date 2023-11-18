@@ -10,6 +10,9 @@ export GIT_EDITOR='nvim'
 export PATH="$HOME/bin:$PATH"
 export PATH="$PATH:$HOME/.local/bin"
 
+# z
+source "$HOMEBREW_PREFIX/opt/z/etc/profile.d/z.sh"
+
 # Volta settings
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
