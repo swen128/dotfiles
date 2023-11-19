@@ -1,8 +1,6 @@
-# oh-my-zsh settings
-export ZSH="$HOME/.oh-my-zsh"
-ZSH_THEME="robbyrussell"
-plugins=(git)
-source $ZSH/oh-my-zsh.sh
+autoload -Uz compinit && compinit
+
+eval "$(starship init zsh)"
 
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
@@ -42,9 +40,6 @@ if [ -f "$HOME/google-cloud-sdk/completion.zsh.inc" ]; then . "$HOME/google-clou
 # kubectl settings
 alias k='kubectl'
 source <(kubectl completion zsh)
-source "/opt/homebrew/opt/kube-ps1/share/kube-ps1.sh"
-PS1='$(kube_ps1)'$PS1
-kubeoff
 
 # Rancher Desktop settings
 export PATH="$HOME/.rd/bin:$PATH"
