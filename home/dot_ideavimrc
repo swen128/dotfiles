@@ -1,3 +1,32 @@
 let mapleader=" "
 
+" Simplify indentation in visual mode, by making the action repeatable.
+vnoremap < <gv
+vnoremap > >gv
+
+" Keymaps for basic IDE actions.
 map gr <Action>(FindUsages)
+map <Leader>sa <Action>(GotoAction)
+map <Leader>sf <Action>(GotoFile)
+map <Leader>sc <Action>(GotoClass)
+map <Leader>rf <Action>(RecentFiles)
+map <Leader>rn <Action>(RenameElement)
+map <Leader><Leader> <Action>(ReformatCode)<Action>(OptimizeImports)
+
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+
+set surround
+
+set nerdtree
+map <Leader>e :NERDTree<CR>
+
+" EasyMotion settings
+" Note: This requires IdeaVim-EasyMotion and AceJump plugins installed.
+set easymotion
+let g:EasyMotion_do_mapping = 0
+let g:EasyMotion_smartcase = 1
+nmap s <Plug>(easymotion-s2)
+
