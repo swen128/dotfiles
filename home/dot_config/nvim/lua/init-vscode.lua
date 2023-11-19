@@ -29,3 +29,13 @@ require('lazy').setup({
   { import = 'plugins.leap' },
   { import = 'plugins.nvim-surround' },
 }, {})
+
+-- Case-insensitive searching UNLESS \C or capital in search
+vim.o.ignorecase = true
+vim.o.smartcase = true
+
+local vscode = require('vscode-neovim')
+
+-- [G]oto [R]eference
+vim.keymap.set('n', 'gr', function() vscode.call('editor.action.referenceSearch.trigger') end)
+
