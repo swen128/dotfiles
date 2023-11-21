@@ -43,6 +43,8 @@ M.tmux_keybinds = {
 M.default_keybinds = {
 	{ key = "t", mods = "SUPER", action = act({ SpawnTab = "CurrentPaneDomain" }) },
 	{ key = "w", mods = "SUPER", action = act({ CloseCurrentTab = { confirm = false } }) },
+  { key = "c", mods = "SUPER", action = act({ CopyTo = "Clipboard" }) },
+  { key = "v", mods = "SUPER", action = act({ PasteFrom = "Clipboard" }) },
 	{ key = "Tab", mods = "CTRL", action = act({ ActivateTabRelative = 1 }) },
 	{ key = "Tab", mods = "CTRL|SHIFT", action = act({ ActivateTabRelative = -1 }) },
 	{ key = "q", mods = "SUPER", action = wezterm.action.QuitApplication },
