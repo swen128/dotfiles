@@ -6,6 +6,7 @@ vnoremap > >gv
 
 " Keymaps for basic IDE actions.
 map gr <Action>(FindUsages)
+map <Leader>t <Action>(ActivateTerminalToolWindow)
 map <Leader>sa <Action>(GotoAction)
 map <Leader>sf <Action>(GotoFile)
 map <Leader>sc <Action>(GotoClass)
