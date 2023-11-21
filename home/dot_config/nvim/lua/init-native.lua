@@ -120,6 +120,11 @@ require('lazy').setup({
         component_separators = '|',
         section_separators = '',
       },
+      sections = {
+        lualine_a = {'mode'},
+        lualine_b = {'branch', 'diagnostics'},
+        lualine_x = {'filetype'},
+      },
     },
   },
 
