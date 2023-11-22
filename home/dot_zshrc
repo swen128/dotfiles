@@ -9,6 +9,9 @@ export GIT_EDITOR='nvim'
 export PATH="$HOME/bin:$PATH"
 export PATH="$PATH:$HOME/.local/bin"
 
+# c.f. https://www.jetbrains.com/help/idea/working-with-the-ide-features-from-command-line.html
+alias idea='open -na "IntelliJ IDEA.app" --args'
+
 # Volta settings
 export VOLTA_HOME="$HOME/.volta"
 export PATH="$VOLTA_HOME/bin:$PATH"
