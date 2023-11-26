@@ -32,6 +32,7 @@ brew "grep" # grep (latest)
 brew "highlight" # code syntax highlighting
 brew "htop" # a top alternative
 brew "jq" # work with JSON files in shell scripts
+brew "lazydocker" # a better docker UI
 brew "lazygit" # a better git UI
 brew "neovim" # A better vim
 brew "powerlevel10k" # A zsh theme
