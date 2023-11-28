@@ -7,7 +7,6 @@ if OS.mac?
 
     brew "noti" # utility to display notifications from scripts
     brew "trash" # rm, but put in the trash rather than completely delete
-    # yabai
 
 elsif OS.linux?
     brew "xclip" # access to clipboard (similar to pbcopy/pbpaste)
