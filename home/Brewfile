@@ -47,4 +47,5 @@ brew "zoxide" # switch between most used directories
 brew "zsh" # zsh (latest)
 
 cask "font-fira-code-nerd-font"
+cask "karabiner-elements"
 
