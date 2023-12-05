@@ -15,6 +15,7 @@ map <Leader>sg <Action>(FindInPath)
 map <Leader>rf <Action>(RecentFiles)
 map <Leader>rn <Action>(RenameElement)
 map <Leader><Leader> <Action>(ReformatCode)<Action>(OptimizeImports)
+map <S-K> <Action>(ShowHoverInfo)
 
 set ignorecase
 set smartcase
