@@ -1,0 +1,7 @@
+{
+  "~b" = moveWordBackward:;
+  "~f" = moveWordForward:;
+  "~B" = moveWordBackwardAndModifySelection:;
+  "~F" = moveWordForwardAndModifySelection:;
+}
+
