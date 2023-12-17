@@ -1,5 +1,2 @@
-if vim.g.vscode then
-  require 'init-vscode'
-else
-  require 'init-native'
-end
+-- bootstrap lazy.nvim, LazyVim and your plugins
+require("config.lazy")
