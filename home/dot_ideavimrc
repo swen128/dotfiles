@@ -5,16 +5,23 @@ vnoremap < <gv
 vnoremap > >gv
 
 " Keymaps for basic IDE actions.
-map gr <Action>(FindUsages)
 map gc <Action>(CommentByLineComment)
-map <Leader>t <Action>(ActivateTerminalToolWindow)
-map <Leader>sa <Action>(GotoAction)
-map <Leader>sf <Action>(GotoFile)
-map <Leader>sc <Action>(GotoClass)
+map gi <Action>(GotoImplementation)
+map gr <Action>(FindUsages)
+map gt <Action>(GotoTest)
+
+map <Leader>fa <Action>(GotoAction)
+map <Leader>fc <Action>(GotoClass)
+map <Leader>ff <Action>(GotoFile)
+map <Leader>fr <Action>(RecentFiles)
+map <Leader>ft <Action>(ActivateTerminalToolWindow)
+
 map <Leader>sg <Action>(FindInPath)
-map <Leader>rf <Action>(RecentFiles)
-map <Leader>rn <Action>(RenameElement)
-map <Leader><Leader> <Action>(ReformatCode)<Action>(OptimizeImports)
+
+map <Leader>ca <Action>(ShowIntentionActions)
+map <Leader>cr <Action>(RenameElement)
+map <Leader>cf <Action>(ReformatCode)<Action>(OptimizeImports)
+
 map <S-K> <Action>(ShowHoverInfo)
 
 set ignorecase
