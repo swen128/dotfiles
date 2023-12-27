@@ -1,10 +1,10 @@
 gui:
-  timeFormat: '2006-01-02'
-  shortTimeFormat: '15:04'
+  timeFormat: "2006-01-02"
+  shortTimeFormat: "15:04"
 
 git:
-  branchLogCmd: 'git log --graph --oneline --decorate {{branchName}} --'
-  allBranchesLogCmd: 'git log --graph --oneline --decorate --all'
+  branchLogCmd: "git log --graph --oneline --decorate {{branchName}} --"
+  allBranchesLogCmd: "git log --graph --oneline --decorate --all --date-order"
   log:
     showWholeGraph: false
   paging:
