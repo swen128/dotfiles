@@ -22,6 +22,9 @@ map <Leader>ca <Action>(ShowIntentionActions)
 map <Leader>cr <Action>(RenameElement)
 map <Leader>cf <Action>(ReformatCode)<Action>(OptimizeImports)
 
+map <Leader>rr <Action>(Run)
+map <Leader>rd <Action>(Debug)
+
 map <S-K> <Action>(ShowHoverInfo)
 
 set ignorecase
