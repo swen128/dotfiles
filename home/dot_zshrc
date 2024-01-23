@@ -41,3 +41,6 @@ source $(brew --prefix)/share/powerlevel10k/powerlevel10k.zsh-theme
 # To customize prompt, run `p10k configure` or edit the .zsh file.
 [[ ! -f "$XDG_CONFIG_HOME/p10k/config.zsh" ]] || source "$XDG_CONFIG_HOME/p10k/config.zsh"
 
+# Install autocompletion for ast-grep.
+eval "$(sg completions)"
+

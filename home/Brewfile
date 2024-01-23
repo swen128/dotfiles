@@ -16,6 +16,7 @@ tap "homebrew/bundle"
 tap "homebrew/core"
 
 # packages
+brew "ast-grep"
 brew "bat" # better cat
 brew "cloc" # lines of code counter
 brew "entr" # file watcher / command runner
