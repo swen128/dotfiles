@@ -1,0 +1,7 @@
+README.md
+
+{{ if ne .chezmoi.os "darwin" }}
+Library/
+home/dot_config/karabiner/
+{{ end }}
+
