@@ -1,10 +1,6 @@
 # vim:ft=ruby
 
 if OS.mac?
-    # taps
-    tap "homebrew/cask"
-    tap "homebrew/cask-fonts"
-
     brew "noti" # utility to display notifications from scripts
     brew "trash" # rm, but put in the trash rather than completely delete
 
@@ -13,7 +9,6 @@ elsif OS.linux?
 end
 
 tap "homebrew/bundle"
-tap "homebrew/core"
 
 # packages
 brew "ast-grep"
