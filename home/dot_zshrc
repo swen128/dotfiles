@@ -14,8 +14,8 @@ alias idea='open -na "IntelliJ IDEA.app" --args'
 
 eval "$(nodenv init - zsh)"
 
-# MySQL cliient
-export PATH="$HOMEBREW_PREFIX/opt/mysql-client/bin:$PATH"
+# PostgreSQL client
+export PATH="$PATH:$HOMEBREW_PREFIX/opt/libpq/bin"
 
 # Add Go binaries to PATH.
 export GOPATH=$HOME/go
