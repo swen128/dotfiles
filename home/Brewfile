@@ -9,6 +9,7 @@ elsif OS.linux?
 end
 
 tap "homebrew/bundle"
+tap "nodenv/nodenv"
 
 # packages
 brew "ast-grep"
@@ -30,6 +31,8 @@ brew "jq" # work with JSON files in shell scripts
 brew "lazydocker" # a better docker UI
 brew "lazygit" # a better git UI
 brew "neovim" # A better vim
+brew "nodenv" # Node.js environment manager
+brew "nodenv/nodenv/nodenv-default-packages"
 brew "powerlevel10k" # A zsh theme
 brew "python" # python (latest)
 brew "ripgrep" # very fast file searcher

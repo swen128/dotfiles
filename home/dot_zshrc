@@ -12,16 +12,7 @@ export PATH="$PATH:$HOME/.local/bin"
 # c.f. https://www.jetbrains.com/help/idea/working-with-the-ide-features-from-command-line.html
 alias idea='open -na "IntelliJ IDEA.app" --args'
 
-# Volta settings
-export VOLTA_HOME="$HOME/.volta"
-export PATH="$VOLTA_HOME/bin:$PATH"
-
-# pnpm settings
-export PNPM_HOME="$HOME/Library/pnpm"
-case ":$PATH:" in
-  *":$PNPM_HOME:"*) ;;
-  *) export PATH="$PNPM_HOME:$PATH" ;;
-esac
+eval "$(nodenv init - zsh)"
 
 # MySQL cliient
 export PATH="$HOMEBREW_PREFIX/opt/mysql-client/bin:$PATH"
