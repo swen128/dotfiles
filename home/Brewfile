@@ -39,6 +39,7 @@ brew "python" # python (latest)
 brew "ripgrep" # very fast file searcher
 brew "shellcheck" # diagnostics for shell sripts
 brew "tree" # pretty-print directory contents
+brew "unar" # the unarchiver
 brew "wdiff" # word differences in text files
 brew "wget" # internet file retriever
 brew "z" # switch between most used directories
