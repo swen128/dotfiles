@@ -17,6 +17,7 @@ brew "bat" # better cat
 brew "cloc" # lines of code counter
 brew "entr" # file watcher / command runner
 brew "eza" # ls alternative
+brew "fastlane" # tool for iOS/Android development
 brew "fd" # find alternative
 brew "fzf" # Fuzzy file searcher, used in scripts and in vim
 brew "gh" # GitHub CLI
@@ -37,6 +38,7 @@ brew "nodenv" # Node.js environment manager
 brew "nodenv/nodenv/nodenv-default-packages"
 brew "powerlevel10k" # A zsh theme
 brew "python" # python (latest)
+brew "rbenv" # Ruby version manager
 brew "ripgrep" # very fast file searcher
 brew "shellcheck" # diagnostics for shell sripts
 brew "tree" # pretty-print directory contents
@@ -46,7 +48,9 @@ brew "wget" # internet file retriever
 brew "z" # switch between most used directories
 brew "zoxide" # switch between most used directories
 brew "zsh" # zsh (latest)
+brew "1password-cli"
 
 cask "font-fira-code-nerd-font"
 cask "karabiner-elements"
+cask "google-cloud-sdk"
 

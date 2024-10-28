@@ -12,6 +12,8 @@ export PATH="$PATH:$HOME/.local/bin"
 # c.f. https://www.jetbrains.com/help/idea/working-with-the-ide-features-from-command-line.html
 alias idea='open -na "IntelliJ IDEA.app" --args'
 
+alias python=python3
+
 eval "$(nodenv init - zsh)"
 
 # PostgreSQL client
