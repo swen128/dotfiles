@@ -19,5 +19,8 @@ c.keys = keybinds.create_keybinds()
 c.key_tables = keybinds.key_tables
 c.mouse_bindings = keybinds.mouse_bindings
 
+c.unix_domains = { { name = "unix" } }
+c.default_gui_startup_args = { 'connect', 'unix' }
+
 return c
 
