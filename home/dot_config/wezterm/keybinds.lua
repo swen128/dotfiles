@@ -7,8 +7,6 @@ local utils = require("utils")
 --- keybinds
 ---------------------------------------------------------------
 M.tmux_keybinds = {
-	{ key = "h", mods = "ALT", action = act({ ActivateTabRelative = -1 }) },
-	{ key = "l", mods = "ALT", action = act({ ActivateTabRelative = 1 }) },
 	{ key = "h", mods = "ALT|CTRL", action = act({ MoveTabRelative = -1 }) },
 	{ key = "l", mods = "ALT|CTRL", action = act({ MoveTabRelative = 1 }) },
 	{
@@ -54,20 +52,6 @@ M.default_keybinds = {
 	{ key = "z", mods = "ALT", action = "ReloadConfiguration" },
 	{ key = "q", mods = "ALT", action = act({ CloseCurrentPane = { confirm = true } }) },
 	{ key = "a", mods = "ALT", action = wezterm.action.ShowLauncher },
-	{ key = " ", mods = "ALT", action = wezterm.action.ShowTabNavigator },
-	{ key = "d", mods = "ALT|SHIFT", action = wezterm.action.ShowDebugOverlay },
-	{
-		key = "r",
-		mods = "ALT",
-		action = act({
-			ActivateKeyTable = {
-				name = "resize_pane",
-				one_shot = false,
-				timeout_milliseconds = 3000,
-				replace_current = false,
-			},
-		}),
-	},
 	{ key = "s", mods = "ALT", action = act.PaneSelect({
 		alphabet = "1234567890",
 	}) },
