@@ -6,9 +6,6 @@ source $ZSH/oh-my-zsh.sh
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
 
-export PATH="$HOME/bin:$PATH"
-export PATH="$PATH:$HOME/.local/bin"
-
 # c.f. https://www.jetbrains.com/help/idea/working-with-the-ide-features-from-command-line.html
 alias idea='open -na "IntelliJ IDEA.app" --args'
 
