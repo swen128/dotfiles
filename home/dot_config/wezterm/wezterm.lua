@@ -4,6 +4,11 @@ local keybinds = require("keybinds")
 local c = wezterm.config_builder()
 
 c.font_size = 13.0
+c.window_decorations = "RESIZE" -- Hide the title bar.
+c.hide_tab_bar_if_only_one_tab = true
+c.show_new_tab_button_in_tab_bar = false
+c.show_close_tab_button_in_tabs = false
+
 c.window_close_confirmation = "NeverPrompt"
 c.check_for_updates = false
 
