@@ -8,6 +8,13 @@ export GIT_EDITOR='nvim'
 
 alias python=python3
 alias lg=lazygit
+alias lastpatch=latest_patch_version
+
+function latest_patch_version() {
+    local minor_version="$1"
+    git fetch --tags 2>&1
+    git tag --sort -version:refname --list "v${minor_version}.*" | head -n 1
+}
 
 eval "$(nodenv init - zsh)"
 
