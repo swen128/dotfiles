@@ -6,9 +6,13 @@ source $ZSH/oh-my-zsh.sh
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
 
+export FZF_DEFAULT_OPTS="--tmux 90%"
+
 alias python=python3
 alias lg=lazygit
 alias lastpatch=latest_patch_version
+alias sb="tmux capture-pane -pS -"
+alias ta="tmux attach"
 
 function latest_patch_version() {
     local minor_version="$1"
