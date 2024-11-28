@@ -34,6 +34,7 @@ brew "jq" # work with JSON files in shell scripts
 brew "lazydocker" # a better docker UI
 brew "lazygit" # a better git UI
 brew "libpq" # libraries for PostgreSQL
+brew "mise" # https://mise.jdx.dev/
 brew "neovim" # A better vim
 brew "nodenv" # Node.js environment manager
 brew "nodenv/nodenv/nodenv-default-packages"
