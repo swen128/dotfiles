@@ -8,6 +8,8 @@ export GIT_EDITOR='nvim'
 
 export FZF_DEFAULT_OPTS="--tmux 90%"
 
+export VI_MODE_SET_CURSOR=true
+
 alias python=python3
 alias lg=lazygit
 alias lastpatch=latest_patch_version
