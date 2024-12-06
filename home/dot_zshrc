@@ -38,5 +38,5 @@ eval "$(zoxide init zsh)"
 
 eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 
-eval "$(${HOMEBREW_PREFIX}/bin/mise activate zsh)"
+eval "$(mise activate zsh)"
 
