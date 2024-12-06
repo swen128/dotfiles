@@ -40,3 +40,5 @@ eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 
 eval "$(mise activate zsh)"
 
+source "$HOME/.bun/_bun"
+
