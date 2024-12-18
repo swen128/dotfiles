@@ -1,3 +1,0 @@
-return {
-  "Marskey/telescope-sg",
-}
