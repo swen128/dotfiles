@@ -4,3 +4,4 @@
 
 -- Do not autoformat on saving file.
 vim.g.autoformat = false
+vim.g.root_spec = { "cwd" }
