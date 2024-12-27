@@ -10,11 +10,6 @@ return {
       },
     },
   },
-  keys = {
-    { "<leader>gd", "<Cmd>DiffviewOpen<CR>", desc = "Diffview" },
-    { "<leader>gf", "<Cmd>DiffviewFileHistory %<CR>", desc = "Diffview file history" },
-    { "<leader>gp", "<Cmd>DiffviewPr<CR>", desc = "Diffview review a PR" },
-  },
   config = function()
     -- Review a PR for the current branch.
     -- ref: https://github.com/sindrets/diffview.nvim/blob/main/USAGE.md#review-a-pr
@@ -24,5 +19,10 @@ return {
       local range = remote_name .. "/" .. base_ref .. "...HEAD"
       require("diffview").open({ range, "--imply-local" })
     end, {})
+
+    vim.keymap.set("n", "<leader>gd", "<Cmd>DiffviewOpen<CR>", { desc = "Git: Diff" })
+    vim.keymap.set("n", "<leader>gp", "<Cmd>DiffviewPr<CR>", { desc = "Git: Review a PR" })
+    vim.keymap.set("n", "<leader>gf", "<Cmd>DiffviewFileHistory %<CR>", { desc = "Git: File history" })
+    vim.keymap.set("v", "<leader>gf", ":'<,'>DiffviewFileHistory<CR>", { desc = "Git: Range history" })
   end,
 }
