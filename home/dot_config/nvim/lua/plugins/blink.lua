@@ -5,8 +5,8 @@ return {
       preset = "super-tab",
     },
     completion = {
-      list = {
-        selection = "manual",
+      ghost_text = {
+        enabled = true,
       },
     },
     enabled = function()
