@@ -1,3 +1,5 @@
+Plug 'machakann/vim-highlightedyank'
+
 let mapleader=" "
 
 " Simplify indentation in visual mode, by making the action repeatable.
@@ -10,6 +12,9 @@ map gi <Action>(GotoImplementation)
 map gr <Action>(FindUsages)
 map gt <Action>(GotoTest)
 
+map H <Action>(PreviousTab)
+map L <Action>(NextTab)
+
 map <Leader>fa <Action>(GotoAction)
 map <Leader>fc <Action>(GotoClass)
 map <Leader>ff <Action>(GotoFile)
@@ -20,12 +25,16 @@ map <Leader>sg <Action>(FindInPath)
 
 map <Leader>ca <Action>(ShowIntentionActions)
 map <Leader>cr <Action>(RenameElement)
-map <Leader>cf <Action>(ReformatCode)<Action>(OptimizeImports)
+map <Leader>cf <Action>(ReformatCode)
 
 map <Leader>rr <Action>(Run)
 map <Leader>rd <Action>(Debug)
 
+map <Leader><Leader> <Action>(SaveDocument)
+
 map <S-K> <Action>(ShowHoverInfo)
+
+set clipboard+=unnamed
 
 set ignorecase
 set smartcase
