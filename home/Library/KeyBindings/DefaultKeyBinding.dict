@@ -3,5 +3,13 @@
   "~f" = moveWordForward:;
   "~B" = moveWordBackwardAndModifySelection:;
   "~F" = moveWordForwardAndModifySelection:;
+
+  "~w" = selectWord:;
+  "~v" = selectParagraph:;
+  "~p" = yank:;
+  "~m" = setMark:;
+  "~M" = selectToMark:;
+  "~^m" = swapWithMark:;
+  "~z" = centerSelectionInVisibleArea:;
 }
 
