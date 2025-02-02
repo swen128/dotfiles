@@ -39,6 +39,7 @@ brew "neovim" # A better vim
 brew "nodenv" # Node.js environment manager
 brew "nodenv/nodenv/nodenv-default-packages"
 brew "python" # python (latest)
+brew "postgresql"
 brew "pgcli"
 brew "rbenv" # Ruby version manager
 brew "ripgrep" # very fast file searcher
