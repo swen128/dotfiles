@@ -1,0 +1,8 @@
+[main]
+multi_line = True
+auto_expand = True
+vi = True
+
+[alias_dsn]
+local = postgres://postgres:postgres@localhost:45432/development
+
