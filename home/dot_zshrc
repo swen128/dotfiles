@@ -25,8 +25,7 @@ function latest_patch_version() {
 
 eval "$(nodenv init - zsh)"
 
-# PostgreSQL client
-export PATH="$PATH:$HOMEBREW_PREFIX/opt/libpq/bin"
+export PATH="$PATH:$HOME/bin"
 
 # Add Go binaries to PATH.
 export GOPATH=$HOME/go
