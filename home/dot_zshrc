@@ -29,6 +29,9 @@ export PATH="$PATH:$HOME/bin"
 export GOPATH=$HOME/go
 export PATH="$GOPATH/bin:$PATH"
 
+export PATH="$PATH:/Applications/WebStorm.app/Contents/MacOS"
+alias idea="webstorm"
+
 # Install autocompletion for ast-grep.
 eval "$(sg completions)"
 

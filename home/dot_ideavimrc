@@ -32,6 +32,8 @@ map <Leader>rd <Action>(Debug)
 
 map <Leader><Leader> <Action>(SaveDocument)
 
+map <Leader>ws <Action>(WindowMenu)
+
 map <S-K> <Action>(ShowHoverInfo)
 
 set clipboard+=unnamed
