@@ -23,8 +23,6 @@ function latest_patch_version() {
     git tag --sort -version:refname --list "v${minor_version}.*" | head -n 1
 }
 
-eval "$(nodenv init - zsh)"
-
 export PATH="$PATH:$HOME/bin"
 
 # Add Go binaries to PATH.
