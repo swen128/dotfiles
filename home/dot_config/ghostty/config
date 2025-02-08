@@ -1,5 +1,7 @@
 macos-titlebar-style = hidden
 
+confirm-close-surface = false
+
 quick-terminal-position = bottom
 quick-terminal-animation-duration = 0
 keybind = global:cmd+f12=toggle_quick_terminal
