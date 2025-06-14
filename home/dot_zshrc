@@ -16,6 +16,7 @@ alias lg=lazygit
 alias lastpatch=latest_patch_version
 alias sb="tmux capture-pane -pS -"
 alias ta="tmux attach"
+alias ls="eza -lh"
 
 function latest_patch_version() {
     local minor_version="$1"
@@ -32,6 +33,8 @@ export PATH="$GOPATH/bin:$PATH"
 export PATH="$PATH:/Applications/WebStorm.app/Contents/MacOS"
 alias idea="webstorm"
 
+export PATH="$PATH:$HOME/programs-personal/depot_tools"
+
 # Install autocompletion for ast-grep.
 eval "$(sg completions)"
 
@@ -41,7 +44,9 @@ eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 
 eval "$(mise activate zsh)"
 
-source "$HOME/.bun/_bun"
-
 source "$XDG_CONFIG_HOME/op/plugins.sh"
 
+# bun completions
+[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+
+[ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
