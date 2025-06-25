@@ -8,15 +8,7 @@ This is a dotfiles repository managed by chezmoi, containing configuration files
 
 ## Git Commit Conventions
 
-This repository uses conventional commits with the following style:
-- Use conventional commit types: `feat:`, `fix:`, `docs:`, `style:`, `refactor:`, `test:`, `chore:`
-- Write commit messages in imperative mood
-- Keep the subject line concise and descriptive
-- End commit messages with a period when following the existing style
-- Examples from this repo:
-  - `feat: Add eza alias for ls and clean up zshrc.`
-  - `fix: Japanese font problem in Ghostty.`
-  - `chore: Install yazi.`
+Use the Conventional Commits specification.
 
 ## Common Commands
 
