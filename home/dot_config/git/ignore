@@ -21,3 +21,9 @@ tscommand*.txt
 
 # npm things
 npm-debug.log
+
+# mise local configuration
+.mise.local.toml
+
+# claude local settings
+.claude/settings.local.json
