@@ -13,16 +13,10 @@ export VI_MODE_SET_CURSOR=true
 alias c=pbcopy
 alias python=python3
 alias lg=lazygit
-alias lastpatch=latest_patch_version
 alias sb="tmux capture-pane -pS -"
 alias ta="tmux attach"
 alias ls="eza -lh"
 
-function latest_patch_version() {
-    local minor_version="$1"
-    git fetch --tags --quiet
-    git tag --sort -version:refname --list "v${minor_version}.*" | head -n 1
-}
 
 export PATH="$PATH:$HOME/bin"
 
@@ -40,134 +34,13 @@ eval "$(sg completions)"
 
 eval "$(zoxide init zsh)"
 
-# Git-aware zoxide wrapper
-function z() {
-    # Quick check if we have a .git file (indicates worktree)
-    if [[ -f .git ]]; then
-        # Read the gitdir path from .git file
-        local gitdir_line="$(head -n1 .git 2>/dev/null)"
-        
-        # Check if it's a worktree by looking for "gitdir:" prefix
-        if [[ "$gitdir_line" =~ ^gitdir:.*/.git/worktrees/ ]]; then
-            # Extract paths efficiently
-            local worktree_root="$PWD"
-            while [[ ! -f "$worktree_root/.git" ]] && [[ "$worktree_root" != "/" ]]; do
-                worktree_root="$(dirname "$worktree_root")"
-            done
-            
-            # Get the main repo path from gitdir
-            local main_repo_root="${gitdir_line#gitdir: }"
-            main_repo_root="${main_repo_root%/.git/worktrees/*}"
-            
-            # Query zoxide for the target
-            local zoxide_result="$(zoxide query -- "$@" 2>/dev/null)"
-            
-            if [[ -n "$zoxide_result" ]] && [[ "$zoxide_result" == "$main_repo_root"/* ]]; then
-                # Extract the relative path from the main repo root
-                local relative_path="${zoxide_result#$main_repo_root/}"
-                
-                # Check if this path exists in the current worktree
-                if [[ -d "$worktree_root/$relative_path" ]]; then
-                    cd "$worktree_root/$relative_path"
-                    return 0
-                fi
-            fi
-        fi
-    fi
-    
-    # Fall back to regular zoxide behavior
-    __zoxide_z "$@"
-}
-
-# ==========================
-# gw function
-# ==========================
-function gw() {
-  local WT_ROOT="$HOME/worktrees"
-  local wt_name="$1"
-  # Get current Git repository root
-  local repo_root
-  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-    echo "Not inside a Git repository"
-    return 1
-  }
-  # Parse GitHub remote URL to get owner and repo name
-  local remote_url
-  remote_url=$(git config --get remote.origin.url)
-  if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
-    local owner="${match[1]}"
-    local repo="${match[2]%.git}"
-  else
-    echo "Unsupported or missing remote URL: $remote_url"
-    return 1
-  fi
-  # If no argument: go to main repository (even from a worktree)
-  if [[ -z "$wt_name" ]]; then
-    if [[ -f "$repo_root/.git" ]]; then
-      local gitdir_line
-      gitdir_line=$(<"$repo_root/.git")
-      if [[ "$gitdir_line" =~ ^gitdir:\ (.+)/\.git/worktrees/.+ ]]; then
-        local main_repo_path="${match[1]}"
-        echo "[gw] Moving to main repository: $main_repo_path"
-        cd "$main_repo_path" || return 1
-        return 0
-      fi
-    fi
-    echo "[gw] Already in main repository: $repo_root"
-    cd "$repo_root" || return 1
-    return 0
-  fi
-  local base_dir="$WT_ROOT/$owner/$repo"
-  local target_dir="$base_dir/$wt_name"
-  if [[ -d "$target_dir" ]]; then
-    echo "[gw] Switching to existing worktree: $target_dir"
-    cd "$target_dir" || return 1
-    return 0
-  fi
-  echo "[gw] Worktree does not exist: $target_dir"
-  echo -n "Create new worktree from origin/<default-branch>? [Enter = Yes, Ctrl+C = Cancel] "
-  read
-  # Only here: determine default branch from remote
-  local default_branch
-  default_branch=$(git remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}')
-  default_branch=${default_branch:-main}
-  echo "[gw] Creating new worktree '$wt_name' from origin/$default_branch"
-  mkdir -p "$base_dir"
-  git fetch origin "$default_branch"
-  git worktree add "$target_dir" "origin/$default_branch" || return 1
-  cd "$target_dir" || return 1
-}
-# ==========================
-# gw completion (_gw)
-# ==========================
-function _gw() {
-  local WT_ROOT="$HOME/worktrees"
-  local remote_url=$(git config --get remote.origin.url 2>/dev/null)
-  [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]] || return
-  local owner="${match[1]}"
-  local repo="${match[2]%.git}"
-  local base_dir="$WT_ROOT/$owner/$repo"
-  [[ -d "$base_dir" ]] || return
-  local -a worktrees
-  worktrees=(${(f)"$(find "$base_dir" -mindepth 1 -maxdepth 1 -type d -exec basename {} \; 2>/dev/null)"})
-  compadd -Q -- "${worktrees[@]}"
-}
-compdef _gw gw
-
 eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 
 eval "$(mise activate zsh)"
 
-# Function to switch gcloud accounts based on mise environment
-gcloud_account_switch() {
-  if [[ -n "$GCLOUD_ACCOUNT" ]]; then
-    local current_account=$(gcloud config get-value account 2>/dev/null)
-    if [[ "$current_account" != "$GCLOUD_ACCOUNT" ]]; then
-      echo "Switching gcloud account to: $GCLOUD_ACCOUNT"
-      gcloud config set account "$GCLOUD_ACCOUNT"
-    fi
-  fi
-}
+# Source custom functions
+source "$HOME/.config/zsh/functions/worktree.zsh"
+source "$HOME/.config/zsh/functions/gcloud.zsh"
 
 # Hook into zsh's chpwd function (called when directory changes)
 autoload -U add-zsh-hook
