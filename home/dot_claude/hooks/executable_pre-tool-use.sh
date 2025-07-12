@@ -11,7 +11,14 @@ INPUT=$(cat)
 # Extract tool name and input from the JSON
 TOOL_NAME=$(echo "$INPUT" | jq -r '.tool_name')
 TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input')
-TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript')
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')
+
+# Read the transcript from the file
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+    TRANSCRIPT=$(cat "$TRANSCRIPT_PATH")
+else
+    TRANSCRIPT=""
+fi
 
 # Get project root from transcript
 PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")

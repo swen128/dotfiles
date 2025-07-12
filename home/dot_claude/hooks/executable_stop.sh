@@ -8,8 +8,15 @@ source "$SCRIPT_DIR/ng_checker.sh"
 # Read the JSON input from stdin
 INPUT=$(cat)
 
-# Extract transcript from the JSON
-TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript')
+# Extract transcript path from the JSON
+TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')
+
+# Read the transcript from the file
+if [ -n "$TRANSCRIPT_PATH" ] && [ -f "$TRANSCRIPT_PATH" ]; then
+    TRANSCRIPT=$(cat "$TRANSCRIPT_PATH")
+else
+    TRANSCRIPT=""
+fi
 
 # Get project root from transcript
 PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
