@@ -26,4 +26,5 @@ npm-debug.log
 .mise.local.toml
 
 # claude local settings
-.claude/settings.local.json
+**/.claude/settings.local.json
+

@@ -1,0 +1,59 @@
+{
+  "cleanupPeriodDays": 1095,
+  "permissions": {
+    "allow": [
+      "Edit",
+      "Bash(ls:*)",
+      "Bash(git commit:*)",
+      "Bash(git add:*)"
+    ],
+    "deny": [
+      "Bash(git push:*)"
+    ]
+  },
+  "model": "opus",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "open -g raycast://confetti"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "open -g raycast://confetti"
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-tool-use.sh"
+          }
+        ]
+      },
+      {
+        "matcher": "WebSearch",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'Use the command: gemini -p \"search for <your search query>\" instead of WebSearch.' >&2 && exit 2"
+          }
+        ]
+      }
+    ]
+  }
+}
