@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Source function libraries
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/transcript_parser.sh"
+source "$SCRIPT_DIR/ng_checker.sh"
+
 # Read the JSON input from stdin
 INPUT=$(cat)
 
@@ -7,25 +12,17 @@ INPUT=$(cat)
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript')
 
 # Get project root from transcript
-PROJECT_ROOT=$(echo "$TRANSCRIPT" | jq -r '.[0].env.working_directory // empty')
-
-# NG keywords to check for
-NG_KEYWORDS=("efficient" "too long" "too large" "complex" "instead" "alternatively")
+PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
 
 # Get the last assistant message
-LAST_MESSAGE=$(echo "$TRANSCRIPT" | jq -r '[.[] | select(.role == "assistant" and .content != null)] | last | .content // empty')
+LAST_MESSAGE=$(get_last_assistant_message "$TRANSCRIPT")
 
 # Check for NG keywords if we have a message
 if [ -n "$LAST_MESSAGE" ]; then
-    LOWER_MESSAGE=$(echo "$LAST_MESSAGE" | tr '[:upper:]' '[:lower:]')
-    
-    for keyword in "${NG_KEYWORDS[@]}"; do
-        if [[ "$LOWER_MESSAGE" == *"$keyword"* ]]; then
-            echo "Blocked: Assistant message contains NG keyword: $keyword" >&2
-            echo "Please rephrase your request to be more specific." >&2
-            exit 2
-        fi
-    done
+    check_ng_keywords "$LAST_MESSAGE"
+    if [ $? -eq 2 ]; then
+        exit 2
+    fi
 fi
 
 # Run confetti only when CLAUDE_CODE_ENTRYPOINT=cli

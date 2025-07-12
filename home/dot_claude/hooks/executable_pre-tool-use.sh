@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Source function libraries
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "$SCRIPT_DIR/transcript_parser.sh"
+source "$SCRIPT_DIR/ng_checker.sh"
+
 # Read the JSON input from stdin
 INPUT=$(cat)
 
@@ -9,20 +14,21 @@ TOOL_INPUT=$(echo "$INPUT" | jq -r '.tool_input')
 TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript')
 
 # Get project root from transcript
-PROJECT_ROOT=$(echo "$TRANSCRIPT" | jq -r '.[0].env.working_directory // empty')
+PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
 
 # Global pre-tool-use checks
 if [ "$TOOL_NAME" = "Bash" ]; then
     # Extract the command from tool input
     command=$(echo "$TOOL_INPUT" | jq -r '.command')
     
-    # Check if the command contains both git and --no-verify
-    if echo "$command" | grep -q 'git' && echo "$command" | grep -q -- '--no-verify'; then
-        echo "Blocked: git commands with --no-verify flag are not allowed" >&2
+    # Check for NG commands
+    check_ng_commands "$command"
+    if [ $? -eq 2 ]; then
         exit 2
     fi
 fi
 
+# Special handling for WebSearch (not in ng_commands.json for backward compatibility)
 if [ "$TOOL_NAME" = "WebSearch" ]; then
     echo 'Use the command: gemini -p "search for <your search query>" instead of WebSearch.' >&2
     exit 2

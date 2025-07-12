@@ -1,0 +1,28 @@
+{
+  "rules": [
+    {
+      "keywords": ["efficient"],
+      "message": "The word 'efficient' suggests optimization without being asked. Please focus on the specific task requested."
+    },
+    {
+      "keywords": ["too long", "too large"],
+      "message": "Avoid judging file or code length. Focus on implementing what was requested."
+    },
+    {
+      "keywords": ["complex"],
+      "message": "The word 'complex' is subjective. Please implement the solution as requested."
+    },
+    {
+      "keywords": ["instead", "alternatively"],
+      "message": "Avoid suggesting alternatives unless explicitly asked. Implement the requested solution."
+    },
+    {
+      "keywords": ["probably", "maybe", "perhaps"],
+      "message": "Avoid uncertainty. If you need clarification, ask specific questions."
+    },
+    {
+      "keywords": ["better", "recommend"],
+      "message": "Avoid unsolicited recommendations. Focus on the task at hand."
+    }
+  ]
+}

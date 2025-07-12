@@ -1,0 +1,24 @@
+{
+  "rules": [
+    {
+      "commands": ["curl", "wget"],
+      "message": "Use the WebFetch tool instead of curl/wget for fetching web content."
+    },
+    {
+      "commands": ["npm install", "npm i"],
+      "message": "Use 'bun install' instead of npm for package installation."
+    },
+    {
+      "commands": ["git push"],
+      "message": "Git push is blocked by default. The user will push changes when ready."
+    },
+    {
+      "commands": ["--no-verify"],
+      "message": "Git commands with --no-verify flag are not allowed. Ensure all hooks pass."
+    },
+    {
+      "commands": ["rm -rf /", "rm -rf /*"],
+      "message": "Dangerous command blocked for safety."
+    }
+  ]
+}
