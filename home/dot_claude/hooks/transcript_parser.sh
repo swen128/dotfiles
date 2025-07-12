@@ -5,7 +5,7 @@
 # Get project root from transcript (JSONL format)
 get_project_root() {
     local transcript="$1"
-    echo "$transcript" | jq -s -r '.[0].env.working_directory // empty'
+    echo "$transcript" | jq -s -r '.[0].cwd // empty'
 }
 
 # Get last assistant message from transcript (JSONL format)
