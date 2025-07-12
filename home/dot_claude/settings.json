@@ -13,13 +13,24 @@
   },
   "model": "opus",
   "hooks": {
-    "Stop": [
+    "PreToolUse": [
       {
         "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "open -g raycast://confetti"
+            "command": "~/.claude/hooks/pre-tool-use.sh"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/post-tool-use.sh"
           }
         ]
       }
@@ -30,27 +41,40 @@
         "hooks": [
           {
             "type": "command",
-            "command": "open -g raycast://confetti"
+            "command": "~/.claude/hooks/notification.sh"
           }
         ]
       }
     ],
-    "PreToolUse": [
+    "Stop": [
       {
-        "matcher": "Bash",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pre-tool-use.sh"
+            "command": "~/.claude/hooks/stop.sh"
           }
         ]
-      },
+      }
+    ],
+    "SubagentStop": [
       {
-        "matcher": "WebSearch",
+        "matcher": "",
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'Use the command: gemini -p \"search for <your search query>\" instead of WebSearch.' >&2 && exit 2"
+            "command": "~/.claude/hooks/subagent-stop.sh"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pre-compact.sh"
           }
         ]
       }
