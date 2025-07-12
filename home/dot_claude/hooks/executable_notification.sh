@@ -9,7 +9,7 @@ TRANSCRIPT=$(echo "$INPUT" | jq -r '.transcript')
 # Get project root from transcript
 PROJECT_ROOT=$(echo "$TRANSCRIPT" | jq -r '.[0].env.working_directory // empty')
 
-# Run confetti only when CLAUDE_CODE_ENTRYPOINT=cli
+# Show UI notifications only when Claude Code is started manually (not programatically)
 if [ "$CLAUDE_CODE_ENTRYPOINT" = "cli" ]; then
     open -g raycast://confetti
 fi

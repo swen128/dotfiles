@@ -6,7 +6,7 @@
     },
     {
       "commands": ["npm install", "npm i"],
-      "message": "Use 'bun install' instead of npm for package installation."
+      "message": "Use bun instead of npm for package installation."
     },
     {
       "commands": ["git push"],
@@ -22,3 +22,4 @@
     }
   ]
 }
+

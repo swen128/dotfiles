@@ -32,7 +32,7 @@ if [ -n "$LAST_MESSAGE" ]; then
     fi
 fi
 
-# Run confetti only when CLAUDE_CODE_ENTRYPOINT=cli
+# Show UI notifications only when Claude Code is started manually (not programatically)
 if [ "$CLAUDE_CODE_ENTRYPOINT" = "cli" ]; then
     open -g raycast://confetti
 fi
