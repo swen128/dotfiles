@@ -19,7 +19,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pre-tool-use.sh"
+            "command": "~/.claude/hooks/pre-tool-use.sh",
+            "timeout": 300
           }
         ]
       }
@@ -30,7 +31,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/post-tool-use.sh"
+            "command": "~/.claude/hooks/post-tool-use.sh",
+            "timeout": 300
           }
         ]
       }
@@ -41,7 +43,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/notification.sh"
+            "command": "~/.claude/hooks/notification.sh",
+            "timeout": 300
           }
         ]
       }
@@ -52,7 +55,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/stop.sh"
+            "command": "~/.claude/hooks/stop.sh",
+            "timeout": 300
           }
         ]
       }
@@ -63,7 +67,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/subagent-stop.sh"
+            "command": "~/.claude/hooks/subagent-stop.sh",
+            "timeout": 300
           }
         ]
       }
@@ -74,7 +79,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pre-compact.sh"
+            "command": "~/.claude/hooks/pre-compact.sh",
+            "timeout": 300
           }
         ]
       }
