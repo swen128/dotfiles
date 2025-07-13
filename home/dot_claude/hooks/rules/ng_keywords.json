@@ -6,11 +6,11 @@
     },
     {
       "keywords": ["too long", "too large"],
-      "message": "Avoid judging file or code length. Focus on implementing what was requested."
+      "message": "Don't use subjective words like 'too long' or 'too large'."
     },
     {
       "keywords": ["complex"],
-      "message": "The word 'complex' is subjective. Please implement the solution as requested."
+      "message": "Don't use subjective words like 'complex'."
     },
     {
       "keywords": ["instead", "alternatively"],
