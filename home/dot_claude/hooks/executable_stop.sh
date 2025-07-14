@@ -24,13 +24,7 @@ PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
 # Get the last assistant message
 LAST_MESSAGE=$(get_last_assistant_message "$TRANSCRIPT")
 
-# Check for NG keywords if we have a message
-if [ -n "$LAST_MESSAGE" ]; then
-    check_ng_keywords "$LAST_MESSAGE"
-    if [ $? -eq 2 ]; then
-        exit 2
-    fi
-fi
+# NG keywords checking removed
 
 # Show UI notifications only when Claude Code is started manually (not programatically)
 if [ "$CLAUDE_CODE_ENTRYPOINT" = "cli" ]; then

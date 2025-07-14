@@ -24,16 +24,7 @@ fi
 PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
 
 # Global pre-tool-use checks
-if [ "$TOOL_NAME" = "Bash" ]; then
-    # Extract the command from tool input
-    command=$(echo "$TOOL_INPUT" | jq -r '.command')
-    
-    # Check for NG commands
-    check_ng_commands "$command"
-    if [ $? -eq 2 ]; then
-        exit 2
-    fi
-fi
+# NG commands checking removed
 
 # Special handling for WebSearch (not in ng_commands.json for backward compatibility)
 if [ "$TOOL_NAME" = "WebSearch" ]; then
