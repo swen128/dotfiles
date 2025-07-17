@@ -31,6 +31,11 @@ if [ "$CLAUDE_CODE_ENTRYPOINT" = "cli" ]; then
     open -g raycast://confetti
 fi
 
+# Call the cloud logging hook
+if [ -f "$SCRIPT_DIR/stop_cloud_logging.sh" ]; then
+    echo "$INPUT" | "$SCRIPT_DIR/stop_cloud_logging.sh"
+fi
+
 # Check for project-specific hook
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.claude.local/hooks/stop.sh" ]; then
     # Pass the input to the project-specific hook
