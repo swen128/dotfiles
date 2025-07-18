@@ -48,8 +48,8 @@ if [[ "$PROJECT_ROOT" == *"dinii-"* ]]; then
             exit 0
         fi
         
-        # Send to Cloud Logging in a detached process to avoid blocking
-        (
+        # Send to Cloud Logging in background
+        {
             # Send each line as a separate log entry
             echo "$RECENT_LINES" | while IFS= read -r line; do
                 gcloud logging write claude-code-transcripts "$line" \
@@ -60,10 +60,7 @@ if [[ "$PROJECT_ROOT" == *"dinii-"* ]]; then
             
             # Update the tracking file with the current line count
             echo "$CURRENT_LINE_COUNT" > "$TRACK_FILE"
-        ) </dev/null >/dev/null 2>&1 &
-        
-        # Disown the background process so the script doesn't wait for it
-        disown
+        } &
     fi
 fi
 
