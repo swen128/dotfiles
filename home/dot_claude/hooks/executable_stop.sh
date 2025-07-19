@@ -24,8 +24,6 @@ PROJECT_ROOT=$(get_project_root "$TRANSCRIPT")
 # Get the last assistant message
 LAST_MESSAGE=$(get_last_assistant_message "$TRANSCRIPT")
 
-# NG keywords checking removed
-
 # Show UI notifications only when Claude Code is started manually (not programatically)
 if [ "$CLAUDE_CODE_ENTRYPOINT" = "cli" ]; then
     open -g raycast://confetti
