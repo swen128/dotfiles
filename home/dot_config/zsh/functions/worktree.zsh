@@ -39,6 +39,56 @@ function z() {
     __zoxide_z "$@"
 }
 
+# Git-aware zoxide interactive wrapper
+function zi() {
+    # Quick check if we have a .git file (indicates worktree)
+    if [[ -f .git ]]; then
+        # Read the gitdir path from .git file
+        local gitdir_line="$(head -n1 .git 2>/dev/null)"
+        
+        # Check if it's a worktree by looking for "gitdir:" prefix
+        if [[ "$gitdir_line" =~ ^gitdir:.*/.git/worktrees/ ]]; then
+            # Extract paths efficiently
+            local worktree_root="$PWD"
+            while [[ ! -f "$worktree_root/.git" ]] && [[ "$worktree_root" != "/" ]]; do
+                worktree_root="$(dirname "$worktree_root")"
+            done
+            
+            # Get the main repo path from gitdir
+            local main_repo_root="${gitdir_line#gitdir: }"
+            main_repo_root="${main_repo_root%/.git/worktrees/*}"
+            
+            # Call zoxide interactive and capture the result
+            local zoxide_result
+            zoxide_result="$(zoxide query -i -- "$@" 2>/dev/null)"
+            local exit_code=$?
+            
+            # If user cancelled the interactive selection, exit
+            if [[ $exit_code -ne 0 ]] || [[ -z "$zoxide_result" ]]; then
+                return $exit_code
+            fi
+            
+            if [[ "$zoxide_result" == "$main_repo_root"/* ]]; then
+                # Extract the relative path from the main repo root
+                local relative_path="${zoxide_result#$main_repo_root/}"
+                
+                # Check if this path exists in the current worktree
+                if [[ -d "$worktree_root/$relative_path" ]]; then
+                    cd "$worktree_root/$relative_path"
+                    return 0
+                fi
+            fi
+            
+            # If not in worktree structure, just cd to the selected path
+            cd "$zoxide_result"
+            return 0
+        fi
+    fi
+    
+    # Fall back to regular zoxide interactive behavior
+    __zoxide_zi "$@"
+}
+
 # ==========================
 # gw function
 # ==========================
