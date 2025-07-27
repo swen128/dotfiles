@@ -34,6 +34,16 @@ if [ -f "$SCRIPT_DIR/stop_cloud_logging.sh" ]; then
     echo "$INPUT" | "$SCRIPT_DIR/stop_cloud_logging.sh"
 fi
 
+# Check if stop_hook_active is already true to prevent infinite loops
+STOP_HOOK_ACTIVE=$(echo "$INPUT" | jq -r '.stop_hook_active // false')
+
+# Check for review documents when stop_hook_active is false (first stop) and review docs exist
+if [ "$STOP_HOOK_ACTIVE" = "false" ] && [ -d "${PWD}/docs/review" ] && [ -n "$(find "${PWD}/docs/review" -name "*.md" -type f 2>/dev/null)" ]; then
+    # Block with the review request
+    echo "Please read the markdown files in docs/review/ and ensure your output complies with the guidelines specified in them." >&2
+    exit 2
+fi
+
 # Check for project-specific hook
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.claude.local/hooks/stop.sh" ]; then
     # Pass the input to the project-specific hook
