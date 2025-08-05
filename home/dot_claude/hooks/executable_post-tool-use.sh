@@ -15,16 +15,6 @@ PROJECT_ROOT=$(echo "$TRANSCRIPT" | jq -r '.[0].env.working_directory // empty')
 # Global post-tool-use actions can be added here
 # For example, logging successful tool uses, checking for errors, etc.
 
-# Check for TypeScript anti-patterns
-SCRIPT_DIR="$(dirname "$0")"
-if [ -f "$SCRIPT_DIR/typescript_checker.sh" ]; then
-    echo "$INPUT" | "$SCRIPT_DIR/typescript_checker.sh"
-    TS_EXIT_CODE=$?
-    if [ $TS_EXIT_CODE -ne 0 ]; then
-        exit $TS_EXIT_CODE
-    fi
-fi
-
 # Check for project-specific hook
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.claude.local/hooks/post-tool-use.sh" ]; then
     # Pass the input to the project-specific hook
