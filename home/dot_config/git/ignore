@@ -28,6 +28,6 @@ npm-debug.log
 # claude local settings
 **/.claude/settings.local.json
 **/.claude-local/
-
 .mcp.json
+.serena/
 
