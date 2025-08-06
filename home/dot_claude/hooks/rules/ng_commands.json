@@ -17,7 +17,7 @@
       "message": "Git commands with --no-verify flag are not allowed. Ensure all hooks pass."
     },
     {
-      "commands": ["git add -A"],
+      "commands": ["git add -A", "git add -u"],
       "message": "Only stage what you've changed."
     },
     {
