@@ -8,7 +8,6 @@
       "Bash(git add:*)"
     ],
     "deny": [
-      "Bash(git push:*)",
       "Bash(gcloud:*)"
     ]
   },

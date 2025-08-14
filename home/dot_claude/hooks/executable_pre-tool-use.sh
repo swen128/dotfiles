@@ -35,12 +35,6 @@ if [ "$TOOL_NAME" = "Bash" ]; then
     fi
 fi
 
-# Special handling for WebSearch (not in ng_commands.json for backward compatibility)
-if [ "$TOOL_NAME" = "WebSearch" ]; then
-    echo 'Use the command: gemini -p "search for <your search query>" instead of WebSearch.' >&2
-    exit 2
-fi
-
 # Check for project-specific hook
 if [ -n "$PROJECT_ROOT" ] && [ -f "$PROJECT_ROOT/.claude.local/hooks/pre-tool-use.sh" ]; then
     # Pass the input to the project-specific hook

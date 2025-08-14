@@ -5,12 +5,8 @@
       "message": "Use the WebFetch tool instead of curl/wget for fetching web content."
     },
     {
-      "commands": ["npm install", "npm i"],
+      "commands": ["npm install", "npm i", "npm run"],
       "message": "Use bun instead of npm for package installation."
-    },
-    {
-      "commands": ["git push"],
-      "message": "Git push is blocked by default. The user will push changes when ready."
     },
     {
       "commands": ["--no-verify"],
