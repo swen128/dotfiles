@@ -1,0 +1,33 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "keybinds": {
+    "leader": "ctrl+l",
+    "app_help": "<leader>h",
+    "editor_open": "<leader>e",
+    "messages_half_page_up": "ctrl+u",
+    "messages_half_page_down": "ctrl+d",
+    "messages_first": "ctrl+g",
+    "messages_last": "ctrl+i",
+    "messages_undo": "<leader>u",
+    "messages_redo": "<leader>r",
+    "input_newline": "ctrl+j"
+  },
+  "mcp": {
+    "grep": {
+      "type": "remote",
+      "url": "https://mcp.grep.app",
+      "enabled": true
+    },
+    "playwright": {
+      "type": "local",
+      "command": ["npx", "@playwright/mcp@latest"],
+      "enabled": true,
+      "environment": {}
+    },
+    "context7": {
+      "type": "remote",
+      "url": "https://mcp.context7.com/mcp",
+      "enabled": true
+    }
+  }
+}
