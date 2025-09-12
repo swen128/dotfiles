@@ -3,7 +3,7 @@
 # Git-aware zoxide wrapper
 function z() {
     local WT_ROOT="$HOME/worktrees"
-    
+
     # Check if we're in a worktree under $WT_ROOT structure
     if [[ "$PWD" =~ ^$WT_ROOT/([^/]+)/([^/]+)/([^/]+)(/.*)?$ ]]; then
         local owner="${match[1]}"
@@ -11,16 +11,16 @@ function z() {
         local worktree="${match[3]}"
         local current_subpath="${match[4]}"
         local worktree_root="$WT_ROOT/$owner/$repo/$worktree"
-        
+
         # Query zoxide for the target
         local zoxide_result="$(zoxide query -- "$@" 2>/dev/null)"
-        
+
         if [[ -n "$zoxide_result" ]]; then
             # Check if target is in the same repo's worktree structure
             if [[ "$zoxide_result" =~ ^$WT_ROOT/$owner/$repo/([^/]+)(/.*)?$ ]]; then
                 local target_worktree="${match[1]}"
                 local target_subpath="${match[2]}"
-                
+
                 # Map to current worktree
                 if [[ -z "$target_subpath" ]]; then
                     cd "$worktree_root"
@@ -31,7 +31,7 @@ function z() {
                 fi
                 return 0
             fi
-            
+
             # Check if target is in the main repo (non-worktree location)
             # Get the main repo path from git config
             local main_repo_path
@@ -39,12 +39,12 @@ function z() {
                 local gitdir_line="$(head -n1 "$worktree_root/.git" 2>/dev/null)"
                 if [[ "$gitdir_line" =~ ^gitdir:\ (.+)/\.git/worktrees/.+$ ]]; then
                     main_repo_path="${match[1]}"
-                    
+
                     if [[ "$zoxide_result" == "$main_repo_path"/* ]] || [[ "$zoxide_result" == "$main_repo_path" ]]; then
                         # Extract relative path and map to current worktree
                         local relative_path="${zoxide_result#$main_repo_path}"
                         relative_path="${relative_path#/}"
-                        
+
                         if [[ -z "$relative_path" ]]; then
                             cd "$worktree_root"
                         elif [[ -d "$worktree_root/$relative_path" ]]; then
@@ -57,8 +57,46 @@ function z() {
                 fi
             fi
         fi
+    else
+        # Check if we're in the main repo and there's a corresponding worktree structure
+        local repo_root
+        repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [[ -n "$repo_root" ]]; then
+            # Parse GitHub remote URL to get owner and repo name
+            local remote_url
+            remote_url=$(git config --get remote.origin.url 2>/dev/null)
+            if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
+                local owner="${match[1]}"
+                local repo="${match[2]%.git}"
+                local wt_base="$WT_ROOT/$owner/$repo"
+
+                # Query zoxide for the target
+                local zoxide_result="$(zoxide query -- "$@" 2>/dev/null)"
+
+                if [[ -n "$zoxide_result" ]]; then
+                    # Check if target is in a worktree of this repo
+                    if [[ "$zoxide_result" =~ ^$wt_base/([^/]+)(/.*)?$ ]]; then
+                        local target_worktree="${match[1]}"
+                        local target_subpath="${match[2]}"
+
+                        # Map to main repo
+                        local relative_path="${zoxide_result#$wt_base/$target_worktree}"
+                        relative_path="${relative_path#/}"
+
+                        if [[ -z "$relative_path" ]]; then
+                            cd "$repo_root"
+                        elif [[ -d "$repo_root/$relative_path" ]]; then
+                            cd "$repo_root/$relative_path"
+                        else
+                            cd "$repo_root"
+                        fi
+                        return 0
+                    fi
+                fi
+            fi
+        fi
     fi
-    
+
     # Fall back to regular zoxide behavior
     __zoxide_z "$@"
 }
@@ -66,7 +104,7 @@ function z() {
 # Git-aware zoxide interactive wrapper
 function zi() {
     local WT_ROOT="$HOME/worktrees"
-    
+
     # Check if we're in a worktree under $WT_ROOT structure
     if [[ "$PWD" =~ ^$WT_ROOT/([^/]+)/([^/]+)/([^/]+)(/.*)?$ ]]; then
         local owner="${match[1]}"
@@ -74,22 +112,22 @@ function zi() {
         local worktree="${match[3]}"
         local current_subpath="${match[4]}"
         local worktree_root="$WT_ROOT/$owner/$repo/$worktree"
-        
+
         # Call zoxide interactive and capture the result
         local zoxide_result
         zoxide_result="$(zoxide query -i -- "$@" 2>/dev/null)"
         local exit_code=$?
-        
+
         # If user cancelled the interactive selection, exit
         if [[ $exit_code -ne 0 ]] || [[ -z "$zoxide_result" ]]; then
             return $exit_code
         fi
-        
+
         # Check if target is in the same repo's worktree structure
         if [[ "$zoxide_result" =~ ^$WT_ROOT/$owner/$repo/([^/]+)(/.*)?$ ]]; then
             local target_worktree="${match[1]}"
             local target_subpath="${match[2]}"
-            
+
             # Map to current worktree
             if [[ -z "$target_subpath" ]]; then
                 cd "$worktree_root"
@@ -100,7 +138,7 @@ function zi() {
             fi
             return 0
         fi
-        
+
         # Check if target is in the main repo (non-worktree location)
         # Get the main repo path from git config
         local main_repo_path
@@ -108,12 +146,12 @@ function zi() {
             local gitdir_line="$(head -n1 "$worktree_root/.git" 2>/dev/null)"
             if [[ "$gitdir_line" =~ ^gitdir:\ (.+)/\.git/worktrees/.+$ ]]; then
                 main_repo_path="${match[1]}"
-                
+
                 if [[ "$zoxide_result" == "$main_repo_path"/* ]] || [[ "$zoxide_result" == "$main_repo_path" ]]; then
                     # Extract relative path and map to current worktree
                     local relative_path="${zoxide_result#$main_repo_path}"
                     relative_path="${relative_path#/}"
-                    
+
                     if [[ -z "$relative_path" ]]; then
                         cd "$worktree_root"
                     elif [[ -d "$worktree_root/$relative_path" ]]; then
@@ -125,12 +163,59 @@ function zi() {
                 fi
             fi
         fi
-        
+
         # If not in same repo structure, just cd to the selected path
         cd "$zoxide_result"
         return 0
+    else
+        # Check if we're in the main repo and there's a corresponding worktree structure
+        local repo_root
+        repo_root=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [[ -n "$repo_root" ]]; then
+            # Parse GitHub remote URL to get owner and repo name
+            local remote_url
+            remote_url=$(git config --get remote.origin.url 2>/dev/null)
+            if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
+                local owner="${match[1]}"
+                local repo="${match[2]%.git}"
+                local wt_base="$WT_ROOT/$owner/$repo"
+
+                # Call zoxide interactive and capture the result
+                local zoxide_result
+                zoxide_result="$(zoxide query -i -- "$@" 2>/dev/null)"
+                local exit_code=$?
+
+                # If user cancelled the interactive selection, exit
+                if [[ $exit_code -ne 0 ]] || [[ -z "$zoxide_result" ]]; then
+                    return $exit_code
+                fi
+
+                # Check if target is in a worktree of this repo
+                if [[ "$zoxide_result" =~ ^$wt_base/([^/]+)(/.*)?$ ]]; then
+                    local target_worktree="${match[1]}"
+                    local target_subpath="${match[2]}"
+
+                    # Map to main repo
+                    local relative_path="${zoxide_result#$wt_base/$target_worktree}"
+                    relative_path="${relative_path#/}"
+
+                    if [[ -z "$relative_path" ]]; then
+                        cd "$repo_root"
+                    elif [[ -d "$repo_root/$relative_path" ]]; then
+                        cd "$repo_root/$relative_path"
+                    else
+                        cd "$repo_root"
+                    fi
+                    return 0
+                fi
+
+                # If not in worktree structure, just cd to the selected path
+                cd "$zoxide_result"
+                return 0
+            fi
+        fi
     fi
-    
+
     # Fall back to regular zoxide interactive behavior
     __zoxide_zi "$@"
 }
