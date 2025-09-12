@@ -11,7 +11,10 @@
       "Bash(gcloud:*)"
     ]
   },
-  "model": "opus",
+  "env": {
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-20250514",
+    "MAX_THINKING_TOKENS": 31999
+  },
   "hooks": {
     "PreToolUse": [
       {
