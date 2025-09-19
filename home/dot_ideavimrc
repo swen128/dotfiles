@@ -32,7 +32,16 @@ map <Leader>rd <Action>(Debug)
 
 map <Leader><Leader> <Action>(SaveDocument)
 
-map <Leader>ws <Action>(WindowMenu)
+" Window management keybinds
+map <Leader>wv <Action>(SplitVertically)
+map <Leader>ws <Action>(SplitHorizontally)
+map <Leader>wq <Action>(Unsplit)
+
+" Pane navigation
+nnoremap <C-h> <C-w>h
+nnoremap <C-l> <C-w>l
+nnoremap <C-k> <C-w>k
+nnoremap <C-j> <C-w>j
 
 map <S-K> <Action>(ShowHoverInfo)
 
