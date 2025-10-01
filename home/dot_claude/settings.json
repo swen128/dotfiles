@@ -7,9 +7,7 @@
       "Bash(git commit:*)",
       "Bash(git add:*)"
     ],
-    "deny": [
-      "Bash(gcloud:*)"
-    ]
+    "deny": []
   },
   "env": {
     "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-20250514",
