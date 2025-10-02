@@ -6,7 +6,9 @@ source $ZSH/oh-my-zsh.sh
 export EDITOR='nvim'
 export GIT_EDITOR='nvim'
 
-export FZF_DEFAULT_OPTS="--tmux 90%"
+export FZF_DEFAULT_COMMAND='fd --type f --hidden --exclude .git --strip-cwd-prefix'
+export FZF_CTRL_T_COMMAND="$FZF_DEFAULT_COMMAND"
+export FZF_DEFAULT_OPTS="--tmux 90% --bind 'ctrl-h:reload(fd --type f --hidden --no-ignore --exclude .git --strip-cwd-prefix)+change-prompt(All> )'"
 
 export VI_MODE_SET_CURSOR=true
 
