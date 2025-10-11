@@ -7,5 +7,4 @@ font-feature = -dlig
 quick-terminal-position = bottom
 quick-terminal-animation-duration = 0
 quick-terminal-autohide = false
-keybind = global:cmd+f12=toggle_quick_terminal
 
