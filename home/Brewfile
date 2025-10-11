@@ -15,6 +15,7 @@ tap "nodenv/nodenv"
 brew "ast-grep"
 brew "bat" # better cat
 brew "cloc" # lines of code counter
+brew "chafa" # terminal image viewer (required by fzf-lua)
 brew "entr" # file watcher / command runner
 brew "eza" # ls alternative
 brew "fastlane" # tool for iOS/Android development
