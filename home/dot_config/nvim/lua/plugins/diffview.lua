@@ -3,14 +3,31 @@ return {
   opts = {
     keymaps = {
       file_panel = {
-        ["q"] = "<cmd>DiffviewClose<CR>",
+        { "n", "q", "<cmd>DiffviewClose<CR>", { desc = "Close Diffview" } },
       },
       file_history_panel = {
-        ["q"] = "<cmd>DiffviewClose<CR>",
+        { "n", "q", "<cmd>DiffviewClose<CR>", { desc = "Close Diffview" } },
+        {
+          "n",
+          "o",
+          function()
+            local lib = require("diffview.lib")
+            local view = lib.get_current_view()
+            if view then
+              local entry = view.panel:get_item_at_cursor()
+              if entry and entry.commit then
+                vim.fn.system("gh browse " .. entry.commit.hash)
+              end
+            end
+          end,
+          { desc = "Open commit on GitHub" },
+        },
       },
     },
   },
-  config = function()
+  config = function(_, opts)
+    require("diffview").setup(opts)
+
     -- Review a PR for the current branch.
     -- ref: https://github.com/sindrets/diffview.nvim/blob/main/USAGE.md#review-a-pr
     vim.api.nvim_create_user_command("DiffviewPr", function()
