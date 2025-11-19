@@ -2,7 +2,6 @@
   "$schema": "https://opencode.ai/config.json",
   "keybinds": {
     "leader": "ctrl+l",
-    "app_help": "<leader>h",
     "editor_open": "<leader>e",
     "messages_half_page_up": "ctrl+u",
     "messages_half_page_down": "ctrl+d",
