@@ -1,10 +1,6 @@
 {
   "rules": [
     {
-      "commands": ["curl", "wget"],
-      "message": "Use the WebFetch tool instead of curl/wget for fetching web content."
-    },
-    {
       "commands": ["npm install", "npm i", "npm run", "npm test"],
       "message": "Use bun instead of npm for package installation."
     },
