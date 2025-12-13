@@ -8,7 +8,11 @@
       "Bash(git add:*)"
     ],
     "deny": [
-      "WebFetch"
+      "WebFetch",
+      "WebSearch",
+      "NotebookEdit",
+      "EnterPlanMode",
+      "ExitPlanMode"
     ]
   },
   "hooks": {
