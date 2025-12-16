@@ -1,6 +1,4 @@
-model = "gpt-5-codex"
-model_reasoning_effort = "medium"
-model_reasoning_summary = "detailed"
+model = "gpt-5.2"
 network_access = true
 
 approval_policy = "on-request"
@@ -9,16 +7,37 @@ sandbox_mode    = "workspace-write"
 [tui]
 notifications = true
 
-[tools]
-web_search = true
+[features]
+rmcp_client = true
 
 [mcp_servers.context7]
+enabled = false
 command = "npx"
 args = ["-y", "@upstash/context7-mcp@latest"]
+
+[mcp_servers.grep]
+enabled = false
+command = "npx"
+args = ["-y", "@grep-mcp/cli@latest"]
+
+[mcp_servers.playwright]
+enabled = false
+command = "npx"
+args = ["-y", "@playwright/mcp@latest"]
+
+[mcp_servers.sentry]
+# enabled = false
+type = "http"
+url = "https://mcp.sentry.dev/mcp"
+disabled_tools = ["analyze_issue_with_seer", "find_organizations", "find_teams", "whoami"]
+
+[mcp_servers.notion]
+enabled = false
+type = "http"
+url = "https://mcp.notion.com/mcp"
 
 [shell_environment_policy]
 set = { CLAUDECODE = "1", AGENT="1" }
 
 [sandbox_workspace_write]
 network_access = true
-
