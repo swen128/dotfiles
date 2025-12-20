@@ -12,7 +12,12 @@
       "WebSearch",
       "NotebookEdit",
       "EnterPlanMode",
-      "ExitPlanMode"
+      "ExitPlanMode",
+
+      "mcp__sentry__whoami",
+      "mcp__sentry__find_organizations",
+      "mcp__sentry__find_teams",
+      "mcp__sentry__analyze_issue_with_seer"
     ]
   },
   "hooks": {
