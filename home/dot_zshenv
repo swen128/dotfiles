@@ -14,4 +14,6 @@ export RIPGREP_CONFIG_PATH="$HOME/.config/ripgrep/config"
 
 [[ -f ~/.zshenv.local ]] && source ~/.zshenv.local
 
+export PATH="$HOME/.local/share/mise/shims:$PATH"
+
 typeset -aU path
