@@ -6,16 +6,16 @@
       "model": "opencode/glm-4.7-free"
     },
     "explore": {
-      "model": "google/antigravity-gemini-3-flash"
+      "model": "anthropic/claude-haiku-4-5"
     },
     "frontend-ui-ux-engineer": {
-      "model": "google/antigravity-gemini-3-pro-high"
+      "model": "anthropic/claude-opus-4-5"
     },
     "document-writer": {
-      "model": "google/antigravity-gemini-3-flash"
+      "model": "anthropic/claude-opus-4-5"
     },
     "multimodal-looker": {
-      "model": "google/antigravity-gemini-3-flash"
+      "model": "anthropic/claude-opus-4-5"
     }
   }
 }
