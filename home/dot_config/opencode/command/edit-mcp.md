@@ -6,7 +6,7 @@ Then read: https://raw.githubusercontent.com/anomalyco/opencode/refs/heads/dev/p
 
 If the MCP server is user-scope, edit the configuration at ~/.local/share/chezmoi/home/dot_config/opencode/opencode.jsonc
 and then run `chezmoi apply --force`.
-Otherwise, edit the opencode.jsonc at the project root following the document.
+Otherwise, edit `<project-root>/opencode.json`.
 
 ## User Request
 $ARGUMENTS
