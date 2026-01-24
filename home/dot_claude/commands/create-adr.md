@@ -1,3 +1,7 @@
+---
+disable-model-invocation: true
+---
+
 Write an architectural decision record in a Markdown file of the following format:
 
 ```
