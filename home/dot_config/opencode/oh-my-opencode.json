@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
   "google_auth": false,
+  "disabled_hooks": ["non-interactive-env"],
   "agents": {
     "librarian": {
       "model": "opencode/glm-4.7-free"
