@@ -4,7 +4,7 @@
   "disabled_hooks": ["non-interactive-env"],
   "agents": {
     "librarian": {
-      "model": "opencode/glm-4.7-free"
+      "model": "anthropic/claude-haiku-4-5"
     },
     "explore": {
       "model": "anthropic/claude-haiku-4-5"
