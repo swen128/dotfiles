@@ -2,7 +2,7 @@
 disable-model-invocation: true
 ---
 
-Add or edit Claude Code settings (hooks, skills, or agents) according to the user request.
+Add or edit Claude Code settings (hooks, skills, agents, or plugins) according to the user request.
 
 First, ask the user (if not already specified):
 1. What type of setting: **hooks**, **skills**, or **agents**?
@@ -12,6 +12,7 @@ Then read the appropriate documentation:
 - Hooks: https://docs.anthropic.com/en/docs/claude-code/hooks
 - Skills: https://docs.anthropic.com/en/docs/claude-code/skills
 - Agents: https://docs.anthropic.com/en/docs/claude-code/sub-agents
+- Plugins: https://code.claude.com/docs/en/plugins-reference.md
 
 Edit the configuration based on scope:
 
