@@ -1,7 +1,7 @@
 {
   "dependencies": {
+    "@google-cloud/bigquery": "^7.9.1",
     "@opencode-ai/plugin": "1.1.36",
-    "@opencode-ai/sdk": "1.1.36",
-    "@google-cloud/bigquery": "^7.9.1"
+    "@opencode-ai/sdk": "1.1.36"
   }
 }
