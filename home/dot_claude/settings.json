@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_ENABLE_TASKS": "true"
+  },
   "cleanupPeriodDays": 1095,
   "permissions": {
     "allow": ["Edit", "Bash(ls:*)", "Bash(git commit:*)", "Bash(git add:*)"],
