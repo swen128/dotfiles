@@ -6,7 +6,6 @@
   "permissions": {
     "allow": ["Edit", "Bash(ls:*)", "Bash(git commit:*)", "Bash(git add:*)"],
     "deny": [
-      "WebFetch",
       "WebSearch",
       "NotebookEdit",
       "EnterPlanMode",
