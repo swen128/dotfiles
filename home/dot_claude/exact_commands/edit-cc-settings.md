@@ -9,9 +9,9 @@ First, ask the user (if not already specified):
 2. Whether it is **user-scope** or **project-scope**?
 
 Then read the appropriate documentation:
-- Hooks: https://docs.anthropic.com/en/docs/claude-code/hooks
-- Skills: https://docs.anthropic.com/en/docs/claude-code/skills
-- Agents: https://docs.anthropic.com/en/docs/claude-code/sub-agents
+- Hooks: https://code.claude.com/docs/en/hooks.md
+- Skills: https://code.claude.com/docs/en/skills.md
+- Agents: https://code.claude.com/docs/en/sub-agents.md
 - Plugins: https://code.claude.com/docs/en/plugins-reference.md
 
 Edit the configuration based on scope:
