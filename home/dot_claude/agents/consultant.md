@@ -1,5 +1,5 @@
 ---
-name: oracle
+name: consultant
 description: Read-only consultation agent. High-IQ reasoning specialist for debugging hard problems and high-difficulty architecture design. Use after 2+ failed fix attempts or for complex architecture decisions.
 model: opus
 tools: Read, Grep, Glob, Bash
