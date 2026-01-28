@@ -39,18 +39,6 @@
         ]
       }
     ],
-    "PostToolUse": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/post-tool-use.sh",
-            "timeout": 300
-          }
-        ]
-      }
-    ],
     "Notification": [
       {
         "matcher": "",
@@ -70,30 +58,6 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/stop.sh",
-            "timeout": 300
-          }
-        ]
-      }
-    ],
-    "SubagentStop": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/subagent-stop.sh",
-            "timeout": 300
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "~/.claude/hooks/pre-compact.sh",
             "timeout": 300
           }
         ]
