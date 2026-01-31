@@ -20,6 +20,8 @@ alias ta="tmux attach"
 alias ls="eza -lh"
 alias oc="opencode"
 alias ccd="claude --dangerously-skip-permissions"
+alias qq="qmd query"
+alias qu="qmd update && qmd embed"
 
 # Yazi shell wrapper - cd to directory on exit
 function y() {
