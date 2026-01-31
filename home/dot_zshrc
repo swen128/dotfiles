@@ -63,7 +63,8 @@ gcloud_account_switch
 
 source "$XDG_CONFIG_HOME/op/plugins.sh"
 
-# bun completions
+# bun
+export PATH="$HOME/.bun/bin:$PATH"
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 [ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
