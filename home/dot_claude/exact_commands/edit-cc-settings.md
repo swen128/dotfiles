@@ -23,6 +23,3 @@ Edit the configuration based on scope:
 | Agents | `~/.local/share/chezmoi/home/dot_claude/agents/`       | `<project-root>/.claude/agents/` |
 
 If user-scope, run `chezmoi apply --force` after editing.
-
-## User Request
-$ARGUMENTS

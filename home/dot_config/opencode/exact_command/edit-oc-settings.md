@@ -16,6 +16,3 @@ Edit the configuration based on scope:
 | Plugin | `~/.local/share/chezmoi/home/dot_config/opencode/plugin/`        | `<project-root>/.opencode/plugin/`    |
 
 If user-scope, run `chezmoi apply --force` after editing.
-
-## User Request
-$ARGUMENTS

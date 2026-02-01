@@ -4,8 +4,7 @@ disable-model-invocation: true
 
 Generate an initial set of requirements in EARS format based on the feature idea, then iterate with the user to refine them until they are complete and accurate.
 
-Don't focus on code exploration in this phase. Instead, just focus on writing requirements which will later be turned into
-a design.
+Don't focus on code exploration in this phase. Instead, just focus on writing requirements which will later be turned into a design.
 
 **Constraints:**
 
@@ -27,8 +26,3 @@ a design.
 - The model MAY ask targeted questions about specific aspects of the requirements that need clarification
 - The model MAY suggest options when the user is unsure about a particular aspect
 - The model MUST proceed to the design phase after the user accepts the requirements
-
-**Feature idea:**
-
-$ARGUMENTS
-
