@@ -12,9 +12,9 @@ Create a TODO item using the `nb` CLI.
 
 ```markdown
 ---
-status: pending
+status: not_started
 blocked_by:
-  - "[[other-todo.todo.md]]"  # Optional: link to blocking todo
+  - "[[other-todo.todo.md]]" # Optional: link to blocking todo
 ---
 
 # [ ] Todo Title
@@ -56,8 +56,7 @@ Detailed description of the work.
 
 ## Frontmatter Options
 
-| Field | Values | Description |
-|-------|--------|-------------|
-| `status` | `pending`, `blocked`, `in_progress`, `done` | Current status |
-| `blocked_by` | `["[[filename.todo.md]]"]` | Links to blocking todos |
-
+| Field        | Values                                          | Description             |
+| ------------ | ----------------------------------------------- | ----------------------- |
+| `status`     | `not_started`, `pending`, `in_progress`, `done` | Current status          |
+| `blocked_by` | `["[[filename.todo.md]]"]`                      | Links to blocking todos |
