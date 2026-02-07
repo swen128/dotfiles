@@ -4,7 +4,7 @@
 
 # Get the directory where hooks are installed
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-RULES_DIR="$HOOKS_DIR/rules"
+RULES_DIR="$HOOKS_DIR"
 
 
 # Check for NG commands
