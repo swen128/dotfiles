@@ -147,7 +147,6 @@ Task(resume="<previous_agent_id>", prompt="Here's my answer to your question: ..
 - `Explore` - Fast codebase exploration, file search, keyword search
 - `Plan` - Software architect for designing implementation plans
 - `general-purpose` - Full-featured agent for multi-step tasks
-- `Bash` - Command execution specialist
 
 **YOU SHOULD ONLY DO IT YOURSELF WHEN:**
 - Task is trivially simple (1-2 lines, obvious change)
