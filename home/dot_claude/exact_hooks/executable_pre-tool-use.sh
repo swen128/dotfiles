@@ -2,7 +2,7 @@
 
 # Source function libraries
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$SCRIPT_DIR/ng_checker.sh"
+source "$SCRIPT_DIR/ng_commands/ng_checker.sh"
 
 # Read the JSON input from stdin
 INPUT=$(cat)
