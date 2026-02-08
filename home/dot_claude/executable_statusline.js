@@ -28,7 +28,7 @@ const buildStatusLine = (input) => {
   const contextWindow = data.context_window || {};
   const contextSize = contextWindow.context_window_size; 
   const currentUsage = contextWindow.current_usage;
-  const autoCompactLimit = contextSize * 0.775;
+  const autoCompactLimit = contextSize * 0.83;
 
   const currentTokens =
     (currentUsage.input_tokens || 0) +
