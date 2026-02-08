@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/shell_env/session-start.sh",
+            "command": "~/.claude/hooks/shell_env/session-start.ts",
             "timeout": 300
           }
         ]
@@ -47,7 +47,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pre-tool-use.sh",
+            "command": "~/.claude/hooks/pre-tool-use.ts",
             "timeout": 300
           }
         ]
@@ -59,7 +59,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/notification.sh",
+            "command": "~/.claude/hooks/notification.ts",
             "timeout": 300
           }
         ]
@@ -71,7 +71,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/stop.sh",
+            "command": "~/.claude/hooks/stop.ts",
             "timeout": 300
           }
         ]
