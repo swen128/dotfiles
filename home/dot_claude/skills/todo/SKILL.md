@@ -44,11 +44,6 @@ Detailed description of the work.
 - [ ] Criterion 1
 - [ ] Criterion 2
 
-## Dependencies
-
-- **Blocked by**: List blocking items
-- **Blocking**: List items this blocks
-
 ## Related
 
 - Links to PRs, docs, etc.
