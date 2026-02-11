@@ -13,33 +13,33 @@
       "model": "anthropic/claude-haiku-4-5"
     },
     "frontend-ui-ux-engineer": {
-      "model": "anthropic/claude-opus-4-5"
+      "model": "anthropic/claude-opus-4-6"
     },
     "document-writer": {
-      "model": "anthropic/claude-opus-4-5"
+      "model": "anthropic/claude-opus-4-6"
     },
     "multimodal-looker": {
       "model": "anthropic/claude-haiku-4-5"
     },
     "sisyphus": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "oracle": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "prometheus": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "metis": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "momus": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "atlas": {
       "model": "anthropic/claude-sonnet-4-5"
@@ -47,12 +47,12 @@
   },
   "categories": {
     "visual-engineering": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "ultrabrain": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "quick": {
       "model": "anthropic/claude-haiku-4-5"
@@ -61,8 +61,8 @@
       "model": "anthropic/claude-sonnet-4-5"
     },
     "unspecified-high": {
-      "model": "anthropic/claude-opus-4-5",
-      "variant": "max"
+      "model": "anthropic/claude-opus-4-6",
+      "variant": "medium"
     },
     "writing": {
       "model": "anthropic/claude-sonnet-4-5"
