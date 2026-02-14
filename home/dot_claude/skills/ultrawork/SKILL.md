@@ -148,13 +148,6 @@ Task(resume="<previous_agent_id>", prompt="Here's my answer to your question: ..
 - `Plan` - Software architect for designing implementation plans
 - `general-purpose` - Full-featured agent for multi-step tasks
 
-**YOU SHOULD ONLY DO IT YOURSELF WHEN:**
-- Task is trivially simple (1-2 lines, obvious change)
-- You have ALL context already loaded
-- Delegation overhead exceeds task complexity
-
-**OTHERWISE: DELEGATE. ALWAYS.**
-
 ---
 
 ## EXECUTION RULES (PARALLELIZATION MANDATORY)
