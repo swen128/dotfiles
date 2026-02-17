@@ -62,3 +62,8 @@ Content here...
 ```
 
 Use `# [x] Title` for completed todos.
+
+## Markdown writing
+
+- Never use horizontal lines between sections
+- Never write section numbers in headings
