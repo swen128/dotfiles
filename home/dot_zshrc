@@ -19,7 +19,7 @@ alias sb="tmux capture-pane -pS -"
 alias ta="tmux attach"
 alias ls="eza -lh"
 alias oc="opencode"
-alias ccd="claude --dangerously-skip-permissions"
+alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
 alias qq="qmd query"
 alias qu="qmd update && qmd embed"
 

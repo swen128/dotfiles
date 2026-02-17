@@ -90,6 +90,5 @@
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true
   },
-  "teammateMode": "in-process",
   "skipDangerousModePermissionPrompt": true
 }
