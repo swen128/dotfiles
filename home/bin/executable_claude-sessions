@@ -1,0 +1,269 @@
+#!/usr/bin/env bun
+/*
+claude-sessions — fuzzy-find and resume Claude Code sessions.
+
+Usage:
+  claude-sessions              # browse & resume a session
+  claude-sessions --print      # print session ID
+  claude-sessions --path       # print .jsonl file path
+
+Keys:
+  Enter     resume session (or print with --print/--path)
+  ctrl-y    copy session ID to clipboard
+*/
+
+import { $ } from "bun";
+import { readdir } from "node:fs/promises";
+import { join, basename } from "node:path";
+import { homedir } from "node:os";
+
+interface SessionEntry {
+  sessionId: string;
+  fullPath: string;
+  firstPrompt?: string;
+  summary?: string;
+  messageCount?: number;
+  created?: string;
+  modified?: string;
+  gitBranch?: string;
+  projectPath?: string;
+  isSidechain?: boolean;
+}
+
+interface SessionsIndex {
+  version: number;
+  entries: SessionEntry[];
+}
+
+interface JsonlLine {
+  type: string;
+  isSidechain?: boolean;
+  message?: {
+    role: string;
+    content: string | ContentBlock[];
+  };
+}
+
+interface ContentBlock {
+  type: string;
+  text?: string;
+}
+
+const CLAUDE_DIR = join(homedir(), ".claude", "projects");
+const DIM = "\x1b[8m";
+const RESET = "\x1b[0m";
+const SEP = " │ ";
+
+// Parse args
+const action = process.argv.includes("--print")
+  ? "print"
+  : process.argv.includes("--path")
+    ? "path"
+    : "resume";
+
+if (process.argv.includes("-h") || process.argv.includes("--help")) {
+  console.log(`Usage: claude-sessions [--print|--path]
+  --print  Print session ID to stdout
+  --path   Print .jsonl file path to stdout
+  (default) Resume session with claude --resume`);
+  process.exit(0);
+}
+
+function extractText(
+  content: string | ContentBlock[] | undefined,
+): string | null {
+  if (!content) return null;
+  if (typeof content === "string") return content.replace(/\n/g, " ").trim();
+  if (Array.isArray(content)) {
+    const texts = content
+      .filter((b) => b.type === "text" && b.text)
+      .map((b) => b.text!.replace(/\n/g, " ").trim());
+    return texts.join(" ") || null;
+  }
+  return null;
+}
+
+// Collect all sessions from sessions-index.json files
+async function collectSessions(): Promise<SessionEntry[]> {
+  const sessions: SessionEntry[] = [];
+  let dirs: string[];
+  try {
+    dirs = await readdir(CLAUDE_DIR);
+  } catch {
+    return sessions;
+  }
+
+  for (const dir of dirs) {
+    const indexPath = join(CLAUDE_DIR, dir, "sessions-index.json");
+    try {
+      const file = Bun.file(indexPath);
+      const data: SessionsIndex = await file.json();
+      for (const entry of data.entries) {
+        if (!entry.isSidechain) {
+          sessions.push(entry);
+        }
+      }
+    } catch {
+      // skip missing/invalid index files
+    }
+  }
+
+  sessions.sort((a, b) => {
+    const da = a.modified || a.created || "";
+    const db = b.modified || b.created || "";
+    return db.localeCompare(da);
+  });
+
+  return sessions;
+}
+
+// Extract all user/assistant text from a .jsonl file for search
+async function extractSessionText(fullPath: string): Promise<string> {
+  try {
+    const file = Bun.file(fullPath);
+    if (!(await file.exists())) return "";
+    const raw = await file.text();
+    const chunks: string[] = [];
+    for (const line of raw.split("\n")) {
+      if (!line) continue;
+      try {
+        const obj: JsonlLine = JSON.parse(line);
+        if (obj.isSidechain) continue;
+        if ((obj.type === "user" || obj.type === "assistant") && obj.message) {
+          const text = extractText(obj.message.content);
+          if (text) chunks.push(text);
+        }
+      } catch {}
+    }
+    return chunks.join(" ").replace(/[\t\n\r]+/g, " ").slice(0, 2000);
+  } catch {
+    return "";
+  }
+}
+
+function pad(s: string, n: number): string {
+  return s.length >= n ? s.slice(0, n) : s + " ".repeat(n - s.length);
+}
+
+// Format a session as a single display line with concealed search text.
+// fzf's --with-nth limits search to displayed fields only, so we avoid it.
+// Instead, we format fixed-width columns and append search text with ANSI
+// conceal (SGR 8) so fzf can match it but the terminal hides it.
+//
+// The line also embeds sessionId and fullPath in the concealed region,
+// extracted later by splitting on \t.
+async function formatLine(s: SessionEntry): Promise<string> {
+  const date = (s.modified || s.created || "?").split("T")[0];
+  const project = pad(s.projectPath ? basename(s.projectPath) : "?", 20);
+  const summary = pad(
+    (s.summary || s.firstPrompt || "(no summary)")
+      .replace(/\n/g, " ")
+      .slice(0, 50),
+    50,
+  );
+  const branch = pad(s.gitBranch || "?", 16);
+  const msgs = pad(String(s.messageCount || 0), 4);
+  const searchText = await extractSessionText(s.fullPath);
+
+  const visible = `${date}${SEP}${project}${SEP}${summary}${SEP}${branch}${SEP}${msgs}`;
+  // Concealed region: tab-separated sessionId, fullPath, and search corpus
+  const hidden = `${DIM}\t${s.sessionId}\t${s.fullPath}\t${searchText}${RESET}`;
+
+  return visible + hidden;
+}
+
+// Generate preview text for a session's .jsonl file
+async function previewSession(jsonlPath: string): Promise<string> {
+  const file = Bun.file(jsonlPath);
+  if (!(await file.exists())) return "File not found";
+
+  const text = await file.text();
+  const lines = text.trim().split("\n");
+  const output: string[] = [];
+
+  for (const line of lines) {
+    if (output.length >= 80) break;
+    try {
+      const obj: JsonlLine = JSON.parse(line);
+      if (obj.isSidechain) continue;
+
+      if (obj.type === "user" && obj.message) {
+        const content = extractText(obj.message.content);
+        if (content) {
+          output.push(`\x1b[36m>> ${content.slice(0, 200)}\x1b[0m`);
+        }
+      } else if (obj.type === "assistant" && obj.message) {
+        const content = extractText(obj.message.content);
+        if (content) {
+          output.push(content.slice(0, 300));
+        }
+      }
+    } catch {}
+  }
+
+  return output.join("\n\n") || "(no messages)";
+}
+
+// Handle --preview mode (called by fzf)
+if (process.argv[2] === "--preview") {
+  const jsonlPath = process.argv[3];
+  if (jsonlPath) {
+    const text = await previewSession(jsonlPath);
+    process.stdout.write(text + "\n");
+  }
+  process.exit(0);
+}
+
+// Main
+const sessions = await collectSessions();
+if (sessions.length === 0) {
+  console.error("No sessions found");
+  process.exit(1);
+}
+
+const input = (await Promise.all(sessions.map(formatLine))).join("\n");
+const self = process.argv[1];
+
+// Extract fields from the concealed region using awk on tab delimiter.
+// The visible part has no tabs; the concealed part is \t{sessionId}\t{fullPath}\t{searchText}
+const fzf = Bun.spawn(
+  [
+    "fzf",
+    "--ansi",
+    "--header=date       │ project              │ summary                                            │ branch           │ msgs",
+    `--preview=bun ${self} --preview "$(echo {} | awk -F'\\t' '{print $3}')"`,
+    "--preview-window=right:50%:wrap",
+    "--height=90%",
+    "--border",
+    "--prompt=Sessions> ",
+    `--bind=ctrl-y:execute-silent(echo {} | awk -F'\\t' '{printf "%s", $2}' | pbcopy)+abort`,
+    "--header-first",
+  ],
+  {
+    stdin: new Response(input),
+    stdout: "pipe",
+    stderr: "inherit",
+  },
+);
+
+const result = await new Response(fzf.stdout).text();
+const exitCode = await fzf.exited;
+
+if (exitCode !== 0 || !result.trim()) process.exit(0);
+
+// Parse: the concealed region has \t{sessionId}\t{fullPath}\t{searchText}
+const parts = result.trim().split("\t");
+const sessionId = parts[1];
+const jsonlPath = parts[2];
+
+switch (action) {
+  case "print":
+    console.log(sessionId);
+    break;
+  case "path":
+    console.log(jsonlPath);
+    break;
+  case "resume":
+    await $`claude --resume ${sessionId}`;
+    break;
+}
