@@ -23,6 +23,7 @@ alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
 alias qq="qmd query"
 alias qu="qmd update && qmd embed"
 alias todos="bun run ~/bin/check-todo.ts"
+alias dlm="yt-dlp -x --audio-format mp3"
 
 # Yazi shell wrapper - cd to directory on exit
 function y() {
