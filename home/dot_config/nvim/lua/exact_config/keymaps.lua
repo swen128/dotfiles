@@ -50,3 +50,14 @@ vim.keymap.set("n", "<leader>gp", "<Cmd>DiffviewPr<CR>", { desc = "Git: Review a
 vim.keymap.set("n", "<leader>gf", "<Cmd>DiffviewFileHistory %<CR>", { desc = "Git: File history" })
 vim.keymap.set("v", "<leader>gf", ":'<,'>DiffviewFileHistory<CR>", { desc = "Git: Range history" })
 vim.keymap.set("n", "<leader>fyp", copy_path_from_root, { desc = "Copy path from project root" })
+vim.keymap.set("n", "<leader>fyP", function()
+  local file = vim.api.nvim_buf_get_name(0)
+  if file == "" then
+    vim.notify("Current buffer has no file on disk", vim.log.levels.WARN, { title = "Copy path" })
+    return
+  end
+  local absolute = vim.fs.normalize(file)
+  vim.fn.setreg("+", absolute)
+  vim.fn.setreg('"', absolute)
+  vim.notify(("Copied %s to clipboard"):format(absolute), vim.log.levels.INFO, { title = "Copy path" })
+end, { desc = "Copy absolute path" })
