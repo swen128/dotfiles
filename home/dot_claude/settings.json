@@ -35,6 +35,11 @@
             "type": "command",
             "command": "~/.claude/hooks/shell_env/session-start.ts",
             "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pane_session/session-start.ts",
+            "timeout": 300
           }
         ]
       }
@@ -70,6 +75,18 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/stop.ts",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pane_session/session-end.ts",
             "timeout": 300
           }
         ]
