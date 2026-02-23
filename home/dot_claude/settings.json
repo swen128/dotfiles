@@ -44,6 +44,18 @@
         ]
       }
     ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-idle-pane-marker/user-prompt-submit.ts",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "",
@@ -76,6 +88,35 @@
             "type": "command",
             "command": "~/.claude/hooks/stop.ts",
             "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-idle-pane-marker/stop.ts",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-idle-pane-marker/subagent-start.ts",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-idle-pane-marker/subagent-stop.ts",
+            "timeout": 300
           }
         ]
       }
@@ -87,6 +128,11 @@
           {
             "type": "command",
             "command": "~/.claude/hooks/pane_session/session-end.ts",
+            "timeout": 300
+          },
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/tmux-idle-pane-marker/session-end.ts",
             "timeout": 300
           }
         ]
