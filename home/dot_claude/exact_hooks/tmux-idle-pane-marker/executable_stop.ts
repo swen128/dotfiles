@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { handleStop } from "../hook.ts";
-import { markIdle } from "./mod.ts";
+import { markIdle } from "./lib.ts";
 
 const allow = { decision: "allow" } as const;
 

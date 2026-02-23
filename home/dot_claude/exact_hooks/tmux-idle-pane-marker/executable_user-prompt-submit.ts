@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { handleUserPromptSubmit } from "../hook.ts";
-import { clearIdle } from "./mod.ts";
+import { clearIdle } from "./lib.ts";
 
 const allow = { decision: "allow" } as const;
 

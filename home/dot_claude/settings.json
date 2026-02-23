@@ -38,7 +38,7 @@
           },
           {
             "type": "command",
-            "command": "~/.claude/hooks/pane_session/session-start.ts",
+            "command": "~/.claude/hooks/tmux-fork/session-start.ts",
             "timeout": 300
           }
         ]
@@ -62,7 +62,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pre-tool-use.ts",
+            "command": "~/.claude/hooks/ng-checker/pre-tool-use.ts",
             "timeout": 300
           }
         ]
@@ -74,7 +74,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/notification.ts",
+            "command": "~/.claude/hooks/notify/notification.ts",
             "timeout": 300
           }
         ]
@@ -86,7 +86,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/stop.ts",
+            "command": "~/.claude/hooks/notify/stop.ts",
             "timeout": 300
           },
           {
@@ -127,7 +127,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "~/.claude/hooks/pane_session/session-end.ts",
+            "command": "~/.claude/hooks/tmux-fork/session-end.ts",
             "timeout": 300
           },
           {

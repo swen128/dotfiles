@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 import { handleSubagentStop } from "../hook.ts";
-import { untrackSubagent } from "./mod.ts";
+import { untrackSubagent } from "./lib.ts";
 
 const allow = { decision: "allow" } as const;
 

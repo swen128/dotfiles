@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-import { type Block, handlePreToolUse } from "./hook.ts";
+import { type Block, handlePreToolUse } from "../hook.ts";
 
 const allow = { decision: "allow" } as const;
 
