@@ -67,3 +67,4 @@ Use `# [x] Title` for completed todos.
 
 - Never use horizontal lines between sections
 - Never write section numbers in headings
+- Always use wiki style link for links between nb notes: [[relative_file_path]] or [[relative_file_path|text]]
