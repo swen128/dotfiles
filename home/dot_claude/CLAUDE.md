@@ -1,3 +1,15 @@
+## Git commands
+
+Watch CI:
+```bash
+gh pr checks <PR number> --watch --fail-fast > /dev/null 2>&1
+```
+
+Get failure logs of CI:
+```bash
+gh run view <run-id> --log-failed | sed 's/\x1b\[[0-9;]*m//g'
+```
+
 ## Notes management
 
 When the user refers to "note" or "nb", use the `nb` CLI. Notes are stored in `~/.nb/<notebook-name>/` as markdown files with git tracking.
