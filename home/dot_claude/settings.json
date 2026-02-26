@@ -148,7 +148,8 @@
     "todo-enforcer@harness": false,
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true,
-    "my-insights@dinii-tools": true
+    "my-insights@dinii-tools": true,
+    "customer-insights@dinii-tools": true
   },
   "skipDangerousModePermissionPrompt": true
 }
