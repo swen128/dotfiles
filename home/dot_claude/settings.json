@@ -149,7 +149,9 @@
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true,
     "my-insights@dinii-tools": true,
-    "customer-insights@dinii-tools": true
+    "customer-insights@dinii-tools": true,
+    "persona-analyzer@dinii-tools": true,
+    "slack-post-generator@dinii-tools": true
   },
   "skipDangerousModePermissionPrompt": true
 }
