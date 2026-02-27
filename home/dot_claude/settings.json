@@ -9,7 +9,8 @@
       "Edit",
       "Bash(ls:*)",
       "Bash(git commit:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "mcp__pencil"
     ],
     "deny": [
       "WebSearch",
@@ -148,9 +149,7 @@
     "todo-enforcer@harness": false,
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true,
-    "my-insights@dinii-tools": true,
-    "customer-insights@dinii-tools": true,
-    "persona-analyzer@dinii-tools": true,
+    "member-lookup@dinii-tools": true,
     "slack-post-generator@dinii-tools": true
   },
   "skipDangerousModePermissionPrompt": true
