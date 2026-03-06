@@ -15,6 +15,7 @@ Expected todo format (.todo.md):
 
   ---
   status: not_started            # not_started | pending | in_progress | done
+  remind: 2026-03-11T10:00:00+09:00
   blocked_by:
     - "[[other-todo.todo.md]]"   # wikilink to blocking todo's filename
   ---
@@ -61,6 +62,7 @@ interface Todo {
   tags: string[];
   tasksDone: number;
   tasksTotal: number;
+  remind: Date | null;
 }
 
 interface DepNode {
@@ -149,6 +151,8 @@ async function fetchTodos(): Promise<Todo[]> {
     const { title, done } = extractTitle(raw);
     const tasks = countTasks(raw);
     const tags = extractTags(raw);
+    const remindStr = fm.remind as string | undefined;
+    const remind = remindStr ? new Date(remindStr) : null;
     todos.push({
       id,
       filename: idToFilename.get(id) ?? "",
@@ -159,6 +163,7 @@ async function fetchTodos(): Promise<Todo[]> {
       tags,
       tasksDone: tasks.done,
       tasksTotal: tasks.total,
+      remind,
     });
   });
   await Promise.all(reads);
@@ -241,11 +246,22 @@ function statusIcon(status: string): string {
   }
 }
 
+function formatRemind(remind: Date | null): string {
+  if (!remind) return "";
+  const now = new Date();
+  const label = remind.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (remind <= now) return ` 🔔 overdue: ${label}`;
+  const diffDays = Math.ceil((remind.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays <= 3) return ` 🔔 remind: ${label}`;
+  return ` ⏰ remind: ${label}`;
+}
+
 function formatNodeLabel(node: DepNode): string {
   const t = node.todo;
   const tasks = t.tasksTotal > 0 ? ` [${t.tasksDone}/${t.tasksTotal}]` : "";
   const ready = node.blockedByIds.length === 0 ? " (READY)" : "";
-  return `${statusIcon(t.status)} #${t.id} ${t.title}${tasks}${ready}`;
+  const remind = formatRemind(t.remind);
+  return `${statusIcon(t.status)} #${t.id} ${t.title}${tasks}${ready}${remind}`;
 }
 
 function renderTree(component: DepNode[]): string[] {
@@ -295,7 +311,8 @@ function renderIndependent(todos: Todo[]): string[] {
   return todos.map((t) => {
     const tasks =
       t.tasksTotal > 0 ? `, ${t.tasksDone}/${t.tasksTotal} tasks` : "";
-    return `  ${statusIcon(t.status)} #${t.id} ${t.title} [${t.status}${tasks}]`;
+    const remind = formatRemind(t.remind);
+    return `  ${statusIcon(t.status)} #${t.id} ${t.title} [${t.status}${tasks}]${remind}`;
   });
 }
 
@@ -313,11 +330,15 @@ function recommend(dependent: DepNode[], independent: Todo[]): string[] {
     })),
   ];
 
+  const now = new Date();
   const ready = all.filter((x) => x.ready);
   ready.sort((a, b) => {
     const aIP = a.todo.status === "in_progress" ? 0 : 1;
     const bIP = b.todo.status === "in_progress" ? 0 : 1;
     if (aIP !== bIP) return aIP - bIP;
+    const aOverdue = a.todo.remind && a.todo.remind <= now ? 0 : 1;
+    const bOverdue = b.todo.remind && b.todo.remind <= now ? 0 : 1;
+    if (aOverdue !== bOverdue) return aOverdue - bOverdue;
     if (b.blocksCount !== a.blocksCount) return b.blocksCount - a.blocksCount;
     return (
       a.todo.tasksTotal - a.todo.tasksDone - (b.todo.tasksTotal - b.todo.tasksDone)
