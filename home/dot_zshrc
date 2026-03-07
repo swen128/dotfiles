@@ -57,6 +57,7 @@ eval "$(mise activate zsh)"
 
 # Source custom functions
 source "$HOME/.config/zsh/functions/worktree.zsh"
+source "$HOME/.config/zsh/workspace/workspace.zsh"
 source "$HOME/.config/zsh/functions/gcloud.zsh"
 
 # Hook into zsh's chpwd function (called when directory changes)
