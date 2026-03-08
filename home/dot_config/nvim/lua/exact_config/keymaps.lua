@@ -45,6 +45,10 @@ local function copy_path_from_root()
   vim.notify(("Copied %s to clipboard"):format(relative), vim.log.levels.INFO, { title = "Copy path" })
 end
 
+vim.keymap.set("n", "<C-p>", function()
+  require("config.cmd-palette").open()
+end, { desc = "Command Palette" })
+
 vim.keymap.set("n", "<leader>gd", "<Cmd>DiffviewOpen<CR>", { desc = "Git: Diff" })
 vim.keymap.set("n", "<leader>gp", "<Cmd>DiffviewPr<CR>", { desc = "Git: Review a PR" })
 vim.keymap.set("n", "<leader>gf", "<Cmd>DiffviewFileHistory %<CR>", { desc = "Git: File history" })
