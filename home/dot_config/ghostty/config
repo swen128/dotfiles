@@ -1,10 +1,6 @@
 macos-titlebar-style = hidden
 
-confirm-close-surface = false
-
 font-feature = -dlig
 
-quick-terminal-position = bottom
-quick-terminal-animation-duration = 0
-quick-terminal-autohide = false
+confirm-close-surface = false
 
