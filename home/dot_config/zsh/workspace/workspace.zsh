@@ -81,7 +81,7 @@ function ws() {
       echo "Subcommands:"
       echo "  new <name>      Claim an idle worktree for a new workspace"
       echo "  done [--force]  Release the current workspace"
-      echo "  go <name>       Go to a workspace by name"
+      echo "  go [name]       Go to a workspace (no args = main worktree)"
       echo "  status          Show current and active workspaces"
       return 1
       ;;
@@ -197,6 +197,15 @@ function _ws_done() {
     return 1
   }
 
+  # Delete branch if safe (fully merged into origin default branch)
+  if [[ -n "$current_branch" && "$current_branch" != "HEAD" ]]; then
+    if (cd "$current_root" && git branch -d "$current_branch" 2>/dev/null); then
+      echo "[ws done] Deleted branch '$current_branch' (was fully merged)"
+    else
+      echo "[ws done] Kept branch '$current_branch' (not fully merged)"
+    fi
+  fi
+
   # Remove from state file
   local tmp_file="${_ws_state_file}.tmp"
   grep -v $'\t'"${dir_name}$" "$_ws_state_file" > "$tmp_file" 2>/dev/null
@@ -210,13 +219,14 @@ function _ws_done() {
 
 function _ws_go() {
   local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "[ws go] Error: Workspace name required"
-    echo "Usage: ws go <name>"
-    return 1
-  fi
 
   _ws_resolve_repo || return 1
+
+  # No argument: go to main worktree
+  if [[ -z "$name" ]]; then
+    cd "$_ws_main_repo" || return 1
+    return 0
+  fi
 
   if [[ ! -f "$_ws_state_file" ]]; then
     echo "[ws go] Error: No active workspaces"
