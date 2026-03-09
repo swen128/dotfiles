@@ -22,6 +22,7 @@ brew "fastlane" # tool for iOS/Android development
 brew "fd" # find alternative
 brew "fzf" # Fuzzy file searcher, used in scripts and in vim
 brew "gh" # GitHub CLI
+brew "ghq" # Git repositories manager
 brew "git-delta" # a better git diff
 brew "git-lfs"
 brew "git-secrets" # prevents secret values geting into Git repo
