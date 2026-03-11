@@ -27,6 +27,7 @@ You execute test plans and record results as showboat documents. Your output is 
 - Use `showboat exec` output (printed to stdout) to evaluate results — do not read the doc file to check output.
 - If a TC fails, record the failure and continue to the next TC. Do not stop.
 - Keep notes concise. One sentence per TC description.
+- Never use snapshot refs like `@e2` in `agent-browser` commands. Use stable CSS selectors, text content, or ARIA labels instead — refs are ephemeral and break reproducibility.
 
 ## showboat usage
 
