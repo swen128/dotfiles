@@ -75,3 +75,7 @@ export PATH="$HOME/.bun/bin:$PATH"
 [ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
 
 [ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
+
+# See https://dystroy.org/broot/install-br/
+source /Users/yuto_ogino/.config/broot/launcher/bash/br
+
