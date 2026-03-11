@@ -1,5 +1,31 @@
 return {
   "ibhagwan/fzf-lua",
+  init = function()
+    vim.api.nvim_create_user_command("Nb", function(opts)
+      if opts.args ~= "" then
+        local path = vim.fn.system("nb show " .. vim.fn.shellescape(opts.args) .. " --path"):gsub("%s+$", "")
+        if vim.v.shell_error == 0 and path ~= "" then
+          vim.cmd("edit " .. vim.fn.fnameescape(path))
+        else
+          vim.notify("nb: note not found: " .. opts.args, vim.log.levels.ERROR)
+        end
+      else
+        local nb_dir = vim.env.HOME .. "/.nb/"
+        require("fzf-lua").fzf_exec("nb list --no-color --paths | sed 's|" .. nb_dir .. "||g'", {
+          prompt = "nb> ",
+          actions = {
+            ["default"] = function(selected)
+              local line = selected[1] or ""
+              local rel = line:match("(%S+)%s*$") or line
+              if rel ~= "" then
+                vim.cmd("edit " .. vim.fn.fnameescape(nb_dir .. rel))
+              end
+            end,
+          },
+        })
+      end
+    end, { nargs = "?", desc = "Open note by ID or fuzzy find" })
+  end,
   config = function()
     local actions = require("fzf-lua.actions")
     require("fzf-lua").setup({
