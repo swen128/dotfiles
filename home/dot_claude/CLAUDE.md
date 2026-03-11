@@ -33,6 +33,6 @@ You must first run `ws status`. If you are not in any workspace, or the current 
 Whenever you've written plan, implementation or any artifact, use `opencode` CLI to get a review from the `critic` agent:
 
 ```bash
-opencode run --agent critic "Review the plan at /path/to/plan.md"
-opencode run --agent critic "Review the code changes in `git diff`. See /path/to/spec.md"
+opencode run --agent critic "Review the plan at /path/to/plan.md" 2>/dev/null
+opencode run --agent critic "Review the code changes in `git diff`. See /path/to/spec.md" 2>/dev/null
 ```
