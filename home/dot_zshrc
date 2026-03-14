@@ -57,16 +57,8 @@ eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 eval "$(mise activate zsh)"
 
 # Source custom functions
-source "$HOME/.config/zsh/functions/worktree.zsh"
+source "$HOME/.config/zsh/zoxide.zsh"
 source "$HOME/.config/zsh/workspace/workspace.zsh"
-source "$HOME/.config/zsh/functions/gcloud.zsh"
-
-# Hook into zsh's chpwd function (called when directory changes)
-autoload -U add-zsh-hook
-add-zsh-hook chpwd gcloud_account_switch
-
-# Also run on shell startup for the current directory
-gcloud_account_switch
 
 source "$XDG_CONFIG_HOME/op/plugins.sh"
 
