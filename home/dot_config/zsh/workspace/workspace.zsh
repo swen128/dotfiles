@@ -3,67 +3,58 @@
 # ==========================
 # ws (workspace) command
 # ==========================
+# A workspace is a git worktree with a branch checked out.
+# Workspace name = branch name. No state file — all state derived from git.
 
-# Resolve owner/repo from current git context.
-# Sets _ws_owner, _ws_repo, _ws_base_dir, _ws_state_file, _ws_main_repo
-function _ws_resolve_repo() {
-  local WT_ROOT="$HOME/worktrees"
+# Parse `git worktree list --porcelain` output.
+# Sets arrays: _ws_wt_paths, _ws_wt_branches, _ws_wt_is_main
+# Branch is empty string for detached HEAD worktrees.
+function _ws_list_worktrees() {
+  _ws_wt_paths=()
+  _ws_wt_branches=()
+  _ws_wt_is_main=()
 
-  local repo_root
-  repo_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
-    echo "[ws] Error: Not inside a Git repository"
-    return 1
-  }
+  local output
+  output=$(git worktree list --porcelain 2>/dev/null) || return
 
-  # If we're in a worktree, find the main repo
-  _ws_main_repo="$repo_root"
-  if [[ -f "$repo_root/.git" ]]; then
-    local gitdir_line
-    gitdir_line=$(<"$repo_root/.git")
-    if [[ "$gitdir_line" =~ ^gitdir:\ (.+)/\.git/worktrees/.+ ]]; then
-      _ws_main_repo="${match[1]}"
+  local path="" branch=""
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.+) ]]; then
+      path="${match[1]}"
+    elif [[ "$line" == "branch refs/heads/"* ]]; then
+      branch="${line#branch refs/heads/}"
+    elif [[ "$line" == "detached" ]]; then
+      branch=""
+    elif [[ -z "$line" ]]; then
+      if [[ -n "$path" ]]; then
+        _ws_wt_paths+=("$path")
+        _ws_wt_branches+=("$branch")
+        if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
+          _ws_wt_is_main+=(true)
+        else
+          _ws_wt_is_main+=(false)
+        fi
+      fi
+      path=""
+      branch=""
+    fi
+  done <<< "$output"
+
+  if [[ -n "$path" ]]; then
+    _ws_wt_paths+=("$path")
+    _ws_wt_branches+=("$branch")
+    if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
+      _ws_wt_is_main+=(true)
+    else
+      _ws_wt_is_main+=(false)
     fi
   fi
-
-  local remote_url
-  remote_url=$(git config --get remote.origin.url 2>/dev/null)
-  if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
-    _ws_owner="${match[1]}"
-    _ws_repo="${match[2]%.git}"
-  else
-    echo "[ws] Error: Unsupported or missing remote URL: $remote_url"
-    return 1
-  fi
-
-  _ws_base_dir="$WT_ROOT/$_ws_owner/$_ws_repo"
-  _ws_state_file="$_ws_base_dir/.workspaces"
 }
 
-# Check if a worktree directory is in detached HEAD state
-function _ws_is_detached() {
-  local dir="$1"
-  local head_ref
-  head_ref=$(cd "$dir" && git rev-parse --symbolic-full-name HEAD 2>/dev/null)
-  [[ "$head_ref" == "HEAD" ]]
-}
-
-# Find an idle worktree (detached HEAD, not in state file)
-# Sets _ws_idle_dir on success
-function _ws_find_idle() {
-  _ws_idle_dir=""
-  local dir
-  for dir in "$_ws_base_dir"/*(N/); do
-    local dir_name="${dir:t}"
-    # Skip if listed in state file
-    if [[ -f "$_ws_state_file" ]] && grep -q $'\t'"$dir_name"$ "$_ws_state_file" 2>/dev/null; then
-      continue
-    fi
-    if _ws_is_detached "$dir"; then
-      _ws_idle_dir="$dir"
-      return 0
-    fi
-  done
-  return 1
+# Get the main worktree path
+function _ws_main_worktree() {
+  _ws_list_worktrees
+  echo "${_ws_wt_paths[1]}"
 }
 
 function ws() {
@@ -71,66 +62,104 @@ function ws() {
   shift 2>/dev/null
 
   case "$subcommand" in
-    new)  _ws_new "$@" ;;
-    done) _ws_done "$@" ;;
-    go)   _ws_go "$@" ;;
+    switch) _ws_switch "$@" ;;
+    done)   _ws_done "$@" ;;
     status) _ws_status "$@" ;;
     *)
       echo "Usage: ws <subcommand>"
       echo ""
       echo "Subcommands:"
-      echo "  new <name>      Claim an idle worktree for a new workspace"
+      echo "  switch <name>   Switch to or create a workspace"
       echo "  done [--force]  Release the current workspace"
-      echo "  go [name]       Go to a workspace (no args = main worktree)"
       echo "  status          Show current and active workspaces"
       return 1
       ;;
   esac
 }
 
-function _ws_new() {
+function _ws_switch() {
   local name="$1"
-  if [[ -z "$name" ]]; then
-    echo "[ws new] Error: Workspace name required"
-    echo "Usage: ws new <name>"
-    return 1
-  fi
 
-  _ws_resolve_repo || return 1
-
-  # Check for duplicate workspace name
-  if [[ -f "$_ws_state_file" ]] && grep -q "^${name}"$'\t' "$_ws_state_file" 2>/dev/null; then
-    echo "[ws new] Error: Workspace '$name' already exists"
-    return 1
-  fi
-
-  # Find an idle worktree
-  if ! _ws_find_idle; then
-    echo "[ws new] Error: No idle worktrees available"
-    echo "Create worktrees with 'gw <name>' and release them with 'ws done' to build the pool"
-    return 1
-  fi
-
-  local target_dir="$_ws_idle_dir"
-  local dir_name="${target_dir:t}"
-
-  # Fetch and create branch
-  local default_branch
-  default_branch=$(git remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}')
-  default_branch=${default_branch:-main}
-
-  echo "[ws new] Claiming worktree '$dir_name' as workspace '$name'"
-  (cd "$target_dir" && git fetch origin "$default_branch" && git checkout -b "$name" "origin/$default_branch") || {
-    echo "[ws new] Error: Failed to create branch '$name'"
+  git rev-parse --show-toplevel &>/dev/null || {
+    echo "[ws switch] Error: Not inside a Git repository"
     return 1
   }
 
-  # Record in state file
-  mkdir -p "$_ws_base_dir"
-  printf '%s\t%s\n' "$name" "$dir_name" >> "$_ws_state_file"
+  # No name: switch to the main worktree
+  if [[ -z "$name" ]]; then
+    local main_wt
+    main_wt=$(_ws_main_worktree)
+    echo "[ws switch] Switching to main worktree: $main_wt"
+    cd "$main_wt" || return 1
+    return 0
+  fi
 
-  echo "[ws new] Workspace '$name' ready at $target_dir"
-  cd "$target_dir" || return 1
+  _ws_list_worktrees
+
+  # Check if a pool worktree already has this branch checked out
+  local i
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    if [[ "${_ws_wt_is_main[$i]}" == "true" ]]; then
+      continue
+    fi
+    if [[ "${_ws_wt_branches[$i]}" == "$name" ]]; then
+      echo "[ws switch] Workspace '$name' at ${_ws_wt_paths[$i]}"
+      cd "${_ws_wt_paths[$i]}" || return 1
+      return 0
+    fi
+  done
+
+  # Find an idle worktree (detached HEAD, non-main)
+  local idle_dir=""
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    if [[ "${_ws_wt_is_main[$i]}" == "true" ]]; then
+      continue
+    fi
+    if [[ -z "${_ws_wt_branches[$i]}" ]]; then
+      idle_dir="${_ws_wt_paths[$i]}"
+      break
+    fi
+  done
+
+  if [[ -z "$idle_dir" ]]; then
+    echo "[ws switch] Error: No idle worktrees available"
+    return 1
+  fi
+
+  echo "[ws switch] Claiming worktree at $idle_dir"
+
+  # Branch resolution: (a) local branch, (b) remote origin/<name>, (c) new from origin/<default-branch>
+  if (cd "$idle_dir" && git show-ref --verify --quiet "refs/heads/$name" 2>/dev/null); then
+    # (a) Existing local branch
+    (cd "$idle_dir" && git checkout "$name") || {
+      echo "[ws switch] Error: Failed to check out branch '$name'"
+      return 1
+    }
+  else
+    # Fetch to ensure we have up-to-date remote refs
+    (cd "$idle_dir" && git fetch origin 2>/dev/null)
+
+    if (cd "$idle_dir" && git show-ref --verify --quiet "refs/remotes/origin/$name" 2>/dev/null); then
+      # (b) Existing remote branch — create tracking branch
+      (cd "$idle_dir" && git checkout -b "$name" --track "origin/$name") || {
+        echo "[ws switch] Error: Failed to check out remote branch '$name'"
+        return 1
+      }
+    else
+      # (c) New branch from origin/<default-branch>
+      local default_branch
+      default_branch=$(git remote show origin 2>/dev/null | awk '/HEAD branch/ {print $NF}')
+      default_branch=${default_branch:-main}
+
+      (cd "$idle_dir" && git checkout --no-track -b "$name" "origin/$default_branch") || {
+        echo "[ws switch] Error: Failed to create branch '$name'"
+        return 1
+      }
+    fi
+  fi
+
+  echo "[ws switch] Workspace '$name' ready"
+  cd "$idle_dir" || return 1
 }
 
 function _ws_done() {
@@ -139,25 +168,33 @@ function _ws_done() {
     force=true
   fi
 
-  _ws_resolve_repo || return 1
-
-  # Check we're in a pool worktree
   local current_root
-  current_root=$(git rev-parse --show-toplevel 2>/dev/null)
-  if [[ ! "$current_root" =~ ^"$_ws_base_dir"/ ]]; then
+  current_root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+    echo "[ws done] Error: Not inside a Git repository"
+    return 1
+  }
+
+  _ws_list_worktrees
+
+  # Check we're in a pool worktree (non-main)
+  local is_pool=false
+  local current_branch=""
+  local i
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    if [[ "${_ws_wt_paths[$i]}" == "$current_root" && "${_ws_wt_is_main[$i]}" == "false" ]]; then
+      is_pool=true
+      current_branch="${_ws_wt_branches[$i]}"
+      break
+    fi
+  done
+
+  if [[ "$is_pool" == "false" ]]; then
     echo "[ws done] Error: Not inside a pool worktree"
     return 1
   fi
 
-  local dir_name="${current_root:t}"
-
-  # Find the workspace name for this worktree
-  local ws_name=""
-  if [[ -f "$_ws_state_file" ]]; then
-    ws_name=$(grep $'\t'"${dir_name}$" "$_ws_state_file" | cut -f1)
-  fi
-  if [[ -z "$ws_name" ]]; then
-    echo "[ws done] Error: This worktree is not a claimed workspace"
+  if [[ -z "$current_branch" ]]; then
+    echo "[ws done] Error: Already idle (detached HEAD)"
     return 1
   fi
 
@@ -177,18 +214,23 @@ function _ws_done() {
   fi
 
   # Warn about unpushed commits
-  local current_branch
-  current_branch=$(cd "$current_root" && git rev-parse --abbrev-ref HEAD 2>/dev/null)
-  if [[ -n "$current_branch" && "$current_branch" != "HEAD" ]]; then
-    local upstream="origin/$current_branch"
+  local upstream warn=false
+  upstream=$(cd "$current_root" && git rev-parse --abbrev-ref --symbolic-full-name "@{upstream}" 2>/dev/null)
+  if [[ -z "$upstream" ]]; then
+    echo "[ws done] Warning: Branch '$current_branch' has no upstream (never pushed)"
+    warn=true
+  else
     local unpushed
     unpushed=$(cd "$current_root" && git log "$upstream..HEAD" --oneline 2>/dev/null)
     if [[ -n "$unpushed" ]]; then
       echo "[ws done] Warning: Unpushed commits on '$current_branch':"
       echo "$unpushed"
-      echo -n "Continue? [Enter = Yes, Ctrl+C = Cancel] "
-      read
+      warn=true
     fi
+  fi
+  if [[ "$warn" == true && "$force" == false ]]; then
+    echo -n "Continue? [Enter = Yes, Ctrl+C = Cancel] "
+    read
   fi
 
   # Detach HEAD
@@ -197,72 +239,33 @@ function _ws_done() {
     return 1
   }
 
-  # Delete branch if safe (fully merged into origin default branch)
-  if [[ -n "$current_branch" && "$current_branch" != "HEAD" ]]; then
-    if (cd "$current_root" && git branch -d "$current_branch" 2>/dev/null); then
-      echo "[ws done] Deleted branch '$current_branch' (was fully merged)"
-    else
-      echo "[ws done] Kept branch '$current_branch' (not fully merged)"
-    fi
+  # Safe delete branch
+  if (cd "$current_root" && git branch -d "$current_branch" 2>/dev/null); then
+    echo "[ws done] Deleted branch '$current_branch' (was fully merged)"
+  else
+    echo "[ws done] Kept branch '$current_branch' (not fully merged)"
   fi
 
-  # Remove from state file
-  local tmp_file="${_ws_state_file}.tmp"
-  grep -v $'\t'"${dir_name}$" "$_ws_state_file" > "$tmp_file" 2>/dev/null
-  mv "$tmp_file" "$_ws_state_file"
-  # Remove state file if empty
-  [[ ! -s "$_ws_state_file" ]] && rm -f "$_ws_state_file"
-
-  echo "[ws done] Released workspace '$ws_name'"
-  cd "$_ws_main_repo" || return 1
-}
-
-function _ws_go() {
-  local name="$1"
-
-  _ws_resolve_repo || return 1
-
-  # No argument: go to main worktree
-  if [[ -z "$name" ]]; then
-    cd "$_ws_main_repo" || return 1
-    return 0
-  fi
-
-  if [[ ! -f "$_ws_state_file" ]]; then
-    echo "[ws go] Error: No active workspaces"
-    return 1
-  fi
-
-  local dir_name
-  dir_name=$(grep "^${name}"$'\t' "$_ws_state_file" | cut -f2)
-  if [[ -z "$dir_name" ]]; then
-    echo "[ws go] Error: Workspace '$name' not found"
-    echo ""
-    echo "Active workspaces:"
-    cut -f1 "$_ws_state_file" | sed 's/^/  /'
-    return 1
-  fi
-
-  local target_dir="$_ws_base_dir/$dir_name"
-  if [[ ! -d "$target_dir" ]]; then
-    echo "[ws go] Error: Worktree directory '$target_dir' no longer exists"
-    return 1
-  fi
-
-  cd "$target_dir" || return 1
+  local main_wt="${_ws_wt_paths[1]}"
+  echo "[ws done] Released workspace '$current_branch'"
+  cd "$main_wt" || return 1
 }
 
 function _ws_status() {
-  _ws_resolve_repo || return 1
+  _ws_list_worktrees
 
-  # Determine current workspace
   local current_root
   current_root=$(git rev-parse --show-toplevel 2>/dev/null)
+
+  # Determine current workspace
   local current_ws=""
-  if [[ -f "$_ws_state_file" && "$current_root" =~ ^"$_ws_base_dir"/ ]]; then
-    local current_dir="${current_root:t}"
-    current_ws=$(grep $'\t'"${current_dir}$" "$_ws_state_file" 2>/dev/null | cut -f1)
-  fi
+  local i
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    if [[ "${_ws_wt_paths[$i]}" == "$current_root" && "${_ws_wt_is_main[$i]}" == "false" && -n "${_ws_wt_branches[$i]}" ]]; then
+      current_ws="${_ws_wt_branches[$i]}"
+      break
+    fi
+  done
 
   if [[ -n "$current_ws" ]]; then
     echo "Current workspace: $current_ws"
@@ -271,32 +274,30 @@ function _ws_status() {
   fi
   echo ""
 
-  # Count idle worktrees
+  # Collect active and idle counts
+  local has_active=false
   local idle_count=0
-  local dir
-  for dir in "$_ws_base_dir"/*(N/); do
-    local dir_name="${dir:t}"
-    if [[ -f "$_ws_state_file" ]] && grep -q $'\t'"$dir_name"$ "$_ws_state_file" 2>/dev/null; then
+  local active_lines=()
+
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    if [[ "${_ws_wt_is_main[$i]}" == "true" ]]; then
       continue
     fi
-    if _ws_is_detached "$dir"; then
+    if [[ -n "${_ws_wt_branches[$i]}" ]]; then
+      has_active=true
+      local marker=""
+      [[ "${_ws_wt_branches[$i]}" == "$current_ws" ]] && marker=" *"
+      active_lines+=("  ${_ws_wt_branches[$i]}$marker")
+    else
       ((idle_count++))
     fi
   done
 
-  # Show active workspaces
-  if [[ -f "$_ws_state_file" && -s "$_ws_state_file" ]]; then
+  if [[ "$has_active" == true ]]; then
     echo "Active workspaces:"
-    while IFS=$'\t' read -r name dir_name; do
-      local wt_dir="$_ws_base_dir/$dir_name"
-      local branch="(unknown)"
-      if [[ -d "$wt_dir" ]]; then
-        branch=$(cd "$wt_dir" && git rev-parse --abbrev-ref HEAD 2>/dev/null)
-      fi
-      local marker=""
-      [[ "$name" == "$current_ws" ]] && marker=" *"
-      echo "  $name  ($branch)$marker"
-    done < "$_ws_state_file"
+    for line in "${active_lines[@]}"; do
+      echo "$line"
+    done
   else
     echo "No active workspaces"
   fi
@@ -306,48 +307,60 @@ function _ws_status() {
 }
 
 # ==========================
-# ws completion (_ws)
+# Completion
 # ==========================
-function _ws() {
-  local WT_ROOT="$HOME/worktrees"
 
+# Helper: get active workspace names (branches in pool worktrees)
+function _ws_active_names() {
+  local output
+  output=$(git worktree list --porcelain 2>/dev/null) || return
+
+  local path="" branch="" is_first=true
+  while IFS= read -r line; do
+    if [[ "$line" =~ ^worktree\ (.+) ]]; then
+      path="${match[1]}"
+    elif [[ "$line" == "branch refs/heads/"* ]]; then
+      branch="${line#branch refs/heads/}"
+    elif [[ "$line" == "detached" ]]; then
+      branch=""
+    elif [[ -z "$line" ]]; then
+      if [[ "$is_first" == true ]]; then
+        is_first=false
+      elif [[ -n "$branch" ]]; then
+        echo "$branch"
+      fi
+      path=""
+      branch=""
+    fi
+  done <<< "$output"
+
+  if [[ -n "$path" && "$is_first" == false && -n "$branch" ]]; then
+    echo "$branch"
+  fi
+}
+
+function _ws() {
   if [[ ${#words[@]} -eq 2 ]]; then
     local -a subcommands
     subcommands=(
-      "new:Claim an idle worktree for a new workspace"
+      "switch:Switch to or create a workspace"
       "done:Release the current workspace"
-      "go:Go to a workspace by name"
       "status:Show current and active workspaces"
     )
     _describe -t subcommands 'subcommand' subcommands
-  elif [[ ${#words[@]} -eq 3 && "${words[2]}" == "go" ]]; then
-    local remote_url=$(git config --get remote.origin.url 2>/dev/null)
-    [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]] || return
-    local owner="${match[1]}"
-    local repo="${match[2]%.git}"
-    local state_file="$WT_ROOT/$owner/$repo/.workspaces"
-    if [[ -f "$state_file" ]]; then
-      local -a names
-      names=(${(f)"$(cut -f1 "$state_file" 2>/dev/null)"})
-      compadd -Q -- "${names[@]}"
-    fi
+  elif [[ ${#words[@]} -eq 3 && "${words[2]}" == "switch" ]]; then
+    local -a names
+    names=(${(f)"$(_ws_active_names)"})
+    compadd -Q -- "${names[@]}"
   fi
 }
 compdef _ws ws
 
-alias w='ws go'
+function w() { ws switch "$@" }
 
 function _w() {
-  local WT_ROOT="$HOME/worktrees"
-  local remote_url=$(git config --get remote.origin.url 2>/dev/null)
-  [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]] || return
-  local owner="${match[1]}"
-  local repo="${match[2]%.git}"
-  local state_file="$WT_ROOT/$owner/$repo/.workspaces"
-  if [[ -f "$state_file" ]]; then
-    local -a names
-    names=(${(f)"$(cut -f1 "$state_file" 2>/dev/null)"})
-    compadd -Q -- "${names[@]}"
-  fi
+  local -a names
+  names=(${(f)"$(_ws_active_names)"})
+  compadd -Q -- "${names[@]}"
 }
 compdef _w w
