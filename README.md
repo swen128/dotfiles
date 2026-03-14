@@ -52,13 +52,10 @@ brew bundle install
 - **Oh My Zsh** with plugins:
   - `fzf`: Fuzzy finder integration
   - `fzf-tab`: Tab completion with fzf
-  - `gcloud`: Google Cloud SDK integration
   - `vi-mode`: Vi keybindings in the shell
 - **Oh My Posh** for a customizable prompt theme
-- **Zoxide** for smart directory navigation
-- **Custom Functions**:
-  - `worktree.zsh`: Git worktree management
-  - `gcloud.zsh`: Automatic GCloud account switching based on directory
+- **Zoxide** for smart directory navigation (worktree-aware)
+- **Workspace (`ws`)**: Git worktree pool management for concurrent work
 
 ### Aliases
 - `c`: Copy to clipboard (pbcopy)
