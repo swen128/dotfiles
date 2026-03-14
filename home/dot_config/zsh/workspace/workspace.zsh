@@ -4,7 +4,7 @@
 # ws (workspace) command
 # ==========================
 # A workspace is a git worktree with a branch checked out.
-# Workspace name = branch name. No state file — all state derived from git.
+# Workspace name = branch name.
 
 # Parse `git worktree list --porcelain` output.
 # Sets arrays: _ws_wt_paths, _ws_wt_branches, _ws_wt_is_main
@@ -62,16 +62,18 @@ function ws() {
   shift 2>/dev/null
 
   case "$subcommand" in
-    switch) _ws_switch "$@" ;;
-    done)   _ws_done "$@" ;;
-    status) _ws_status "$@" ;;
+    switch)          _ws_switch "$@" ;;
+    done)            _ws_done "$@" ;;
+    status)          _ws_status "$@" ;;
+    create-worktree) _ws_create_worktree "$@" ;;
     *)
       echo "Usage: ws <subcommand>"
       echo ""
       echo "Subcommands:"
-      echo "  switch <name>   Switch to or create a workspace"
-      echo "  done [--force]  Release the current workspace"
-      echo "  status          Show current and active workspaces"
+      echo "  switch <name>          Switch to or create a workspace"
+      echo "  done [--force]         Release the current workspace"
+      echo "  status                 Show current and active workspaces"
+      echo "  create-worktree [path] Add a new idle worktree"
       return 1
       ;;
   esac
@@ -306,6 +308,48 @@ function _ws_status() {
   echo "Idle worktrees: $idle_count"
 }
 
+function _ws_create_worktree() {
+  local target_path="$1"
+
+  git rev-parse --show-toplevel &>/dev/null || {
+    echo "[ws create-worktree] Error: Not inside a Git repository"
+    return 1
+  }
+
+  if [[ -z "$target_path" ]]; then
+    # Parse owner/repo from remote URL
+    local remote_url
+    remote_url=$(git config --get remote.origin.url)
+    if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
+      local owner="${match[1]}"
+      local repo="${match[2]%.git}"
+    else
+      echo "[ws create-worktree] Error: Unsupported or missing remote URL: $remote_url"
+      return 1
+    fi
+
+    local base_dir="$HOME/worktrees/$owner/$repo"
+    local n=1
+    while [[ -d "$base_dir/wt-$n" ]]; do
+      ((n++))
+    done
+    target_path="$base_dir/wt-$n"
+  fi
+
+  if [[ -e "$target_path" ]]; then
+    echo "[ws create-worktree] Error: Path already exists: $target_path"
+    return 1
+  fi
+
+  mkdir -p "$(dirname "$target_path")"
+  git worktree add --detach "$target_path" || {
+    echo "[ws create-worktree] Error: Failed to create worktree"
+    return 1
+  }
+
+  echo "[ws create-worktree] Created idle worktree at $target_path"
+}
+
 # ==========================
 # Completion
 # ==========================
@@ -346,6 +390,7 @@ function _ws() {
       "switch:Switch to or create a workspace"
       "done:Release the current workspace"
       "status:Show current and active workspaces"
+      "create-worktree:Add a new idle worktree"
     )
     _describe -t subcommands 'subcommand' subcommands
   elif [[ ${#words[@]} -eq 3 && "${words[2]}" == "switch" ]]; then

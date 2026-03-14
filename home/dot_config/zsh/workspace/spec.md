@@ -2,7 +2,7 @@
 
 ## Introduction
 
-The `ws` command provides a workspace abstraction on top of git worktrees, treating them as a **pool** of reusable worktrees. A workspace is any pool worktree that has a branch checked out (not in detached HEAD state). The workspace name is the branch name. No state file is used — all state is derived from git.
+The `ws` command provides a workspace abstraction on top of git worktrees, treating them as a **pool** of reusable worktrees. A workspace is any pool worktree that has a branch checked out (not in detached HEAD state). The workspace name is the branch name.
 
 Idle worktrees are those in detached HEAD state, available to be claimed for new work.
 
@@ -48,7 +48,18 @@ Idle worktrees are those in detached HEAD state, available to be claimed for new
 4. When there are no active workspaces, the system SHALL indicate that.
 5. The command SHALL work from any directory within the same git repository (main repo, pool worktree, or subdirectory).
 
-### 4. Command surface
+### 4. Create a worktree (`ws create-worktree [path]`)
+
+**User Story:** As a developer, I want to add a new worktree to the pool so that I have more slots available for concurrent work.
+
+**Acceptance Criteria:**
+
+1. The system SHALL create a new git worktree in detached HEAD state at the given `<path>`.
+2. When no `<path>` is provided, the system SHALL auto-generate a path under `$HOME/worktrees/<owner>/<repo>/wt-N`, where `<owner>` and `<repo>` are parsed from the GitHub remote URL (`remote.origin.url`), and N is the smallest positive integer that does not collide with an existing directory at that location.
+3. The system SHALL fail with an error if the target path already exists.
+4. The system SHALL fail with an error if not inside a git repository.
+
+### 5. Command surface
 
 The full command set is:
 
@@ -57,11 +68,12 @@ The full command set is:
 | `ws switch [<name>]` | Switch to a workspace, or to the main worktree if no name given |
 | `ws done [--force]` | Release current workspace |
 | `ws status` | Show workspace status |
+| `ws create-worktree [path]` | Add a new idle worktree |
 | `w [<name>]` | Alias for `ws switch [<name>]` |
 
-The previous `ws new` and `ws go` subcommands are removed.
+The previous `ws new`, `ws go` subcommands and the `gw` function are removed.
 
-### 5. Pool membership and discovery
+### 6. Pool membership and discovery
 
 **Acceptance Criteria:**
 
@@ -69,11 +81,11 @@ The previous `ws new` and `ws go` subcommands are removed.
 2. A pool worktree is **idle** when it is in detached HEAD state.
 3. A pool worktree is an **active workspace** when it has a branch checked out. The workspace name equals the branch name.
 
-### 6. Shell completion
+### 7. Shell completion
 
 **Acceptance Criteria:**
 
-1. `ws <TAB>` SHALL offer: `switch`, `done`, `status`.
+1. `ws <TAB>` SHALL offer: `switch`, `done`, `status`, `create-worktree`.
 2. `ws switch <TAB>` SHALL offer active workspace names (branches checked out in pool worktrees).
 3. `w <TAB>` SHALL offer the same completions as `ws switch <TAB>`.
 
