@@ -10,4 +10,9 @@ git:
       pager: delta --dark --paging=never
   allBranchesLogCmds:
     - git log --graph --oneline --decorate --all --date-order
-
+os:
+  edit: "IN_LAZYGIT=1 nvim -- {{filename}}"
+  editAtLine: "IN_LAZYGIT=1 nvim +{{line}} -- {{filename}}"
+  editAtLineAndWait: "IN_LAZYGIT=1 nvim +{{line}} -- {{filename}}"
+  editInTerminal: true
+  openDirInEditor: "IN_LAZYGIT=1 nvim -- {{dir}}"
