@@ -55,7 +55,7 @@ Idle worktrees are those in detached HEAD state, available to be claimed for new
 **Acceptance Criteria:**
 
 1. The system SHALL create a new git worktree in detached HEAD state at the given `<path>`.
-2. When no `<path>` is provided, the system SHALL auto-generate a path under `$HOME/worktrees/<owner>/<repo>/wt-N`, where `<owner>` and `<repo>` are parsed from the GitHub remote URL (`remote.origin.url`), and N is the smallest positive integer that does not collide with an existing directory at that location.
+2. When no `<path>` is provided, the system SHALL auto-generate a path under `$HOME/worktrees/<owner>/<repo>/wt-N`, where `<owner>` and `<repo>` are parsed from the GitHub remote URL (`remote.origin.url`), and N is the smallest positive integer that does not collide with an existing directory at that location. When there is no remote (or the URL doesn't match a known pattern), `<owner>` SHALL be `_` and `<repo>` SHALL be the basename of the main worktree.
 3. The system SHALL fail with an error if the target path already exists.
 4. The system SHALL fail with an error if not inside a git repository.
 

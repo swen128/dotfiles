@@ -317,15 +317,15 @@ function _ws_create_worktree() {
   }
 
   if [[ -z "$target_path" ]]; then
-    # Parse owner/repo from remote URL
-    local remote_url
-    remote_url=$(git config --get remote.origin.url)
+    # Parse owner/repo from remote URL, fall back to _/<repo> when no remote
+    local remote_url owner repo
+    remote_url=$(git config --get remote.origin.url 2>/dev/null)
     if [[ "$remote_url" =~ github.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
-      local owner="${match[1]}"
-      local repo="${match[2]%.git}"
+      owner="${match[1]}"
+      repo="${match[2]%.git}"
     else
-      echo "[ws create-worktree] Error: Unsupported or missing remote URL: $remote_url"
-      return 1
+      owner="_"
+      repo=$(basename "$(git rev-parse --show-toplevel)")
     fi
 
     local base_dir="$HOME/worktrees/$owner/$repo"
