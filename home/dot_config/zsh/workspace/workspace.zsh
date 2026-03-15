@@ -130,14 +130,17 @@ function _ws_switch() {
 
   echo "[ws switch] Claiming worktree at $idle_dir"
 
-  # Branch resolution: (a) local branch, (b) remote origin/<name>, (c) new from origin/<default-branch>
+  # Branch resolution: (a) local branch, (b) remote origin/<name>, (c) new from origin/<default-branch> or HEAD
+  local has_origin=false
+  git config --get remote.origin.url &>/dev/null && has_origin=true
+
   if (cd "$idle_dir" && git show-ref --verify --quiet "refs/heads/$name" 2>/dev/null); then
     # (a) Existing local branch
     (cd "$idle_dir" && git checkout "$name") || {
       echo "[ws switch] Error: Failed to check out branch '$name'"
       return 1
     }
-  else
+  elif [[ "$has_origin" == true ]]; then
     # Fetch to ensure we have up-to-date remote refs
     (cd "$idle_dir" && git fetch origin 2>/dev/null)
 
@@ -158,6 +161,13 @@ function _ws_switch() {
         return 1
       }
     fi
+  else
+    # No remote — new branch from local default branch
+    local default_branch="${_ws_wt_branches[1]:-main}"
+    (cd "$idle_dir" && git checkout -b "$name" "$default_branch") || {
+      echo "[ws switch] Error: Failed to create branch '$name'"
+      return 1
+    }
   fi
 
   echo "[ws switch] Workspace '$name' ready"

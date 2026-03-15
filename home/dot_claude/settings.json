@@ -15,7 +15,6 @@
     "deny": [
       "WebSearch",
       "NotebookEdit",
-      "EnterWorktree",
       "WorktreeCreate",
       "WorktreeDelete",
       "mcp__sentry__whoami",
@@ -150,7 +149,7 @@
     "todo-enforcer@harness": false,
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true,
-    "member-lookup@dinii-tools": true,
+    "member-lookup@dinii-tools": false,
     "slack-post-generator@dinii-tools": true
   },
   "skipDangerousModePermissionPrompt": true
