@@ -2,7 +2,8 @@
   "cleanupPeriodDays": 1095,
   "env": {
     "CLAUDE_CODE_ENABLE_TASKS": "true",
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
   },
   "permissions": {
     "allow": [
@@ -17,6 +18,8 @@
       "NotebookEdit",
       "WorktreeCreate",
       "WorktreeDelete",
+      "EnterWorktree",
+      "ExitWorktree",
       "mcp__sentry__whoami",
       "mcp__sentry__find_organizations",
       "mcp__sentry__find_teams",

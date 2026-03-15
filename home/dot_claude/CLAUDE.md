@@ -12,15 +12,16 @@ gh run view <run-id> --log-failed | sed 's/\x1b\[[0-9;]*m//g'
 
 ## Git worktree management
 
-When you make changes to the dinii-self-all repository, manage git worktrees using `ws` commands.
+Utilize a fixed pool of worktrees, instead of creating or deleting ephemeral ones.
+Worktree is *released* iff it's in detached HEAD state.
 
-```
-ws switch <name>  # Switch to or create a workspace
-ws done           # Release current workspace
-ws status         # Show current workspace status
+```bash
+ws status
+ws switch <branch-name> # Claim a worktree, creating or switching to the branch
+ws done                 # Release current worktree
 ```
 
-You must first run `ws status`. If you are not in any workspace, or the current workspace is unrelated to your work, run `ws switch` with branch name following the conventional commit.
+If the current worktree is dirty and unrelated to your work, always use `ws switch` first.
 
 ## Markdown writing
 
