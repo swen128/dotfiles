@@ -4,7 +4,12 @@
     "CLAUDE_CODE_ENABLE_TASKS": "true",
     "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
     "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1",
-    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1"
+    "CLAUDE_CODE_DISABLE_AUTO_MEMORY": "1",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_LOGS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
+    "OTEL_EXPORTER_OTLP_ENDPOINT": "{{ onepasswordRead "op://Private/Claude Code OTel endpoint/notesPlain" "T3XVGBQA4RARTJY6RQA2NDNZYI" }}"
   },
   "permissions": {
     "allow": [
@@ -154,7 +159,8 @@
     "comment-checker@harness": true,
     "dinii-kpi@dinii-tools": true,
     "member-lookup@dinii-tools": false,
-    "slack-post-generator@dinii-tools": true
+    "slack-post-generator@dinii-tools": true,
+    "typescript-lsp@claude-plugins-official": true
   },
   "skipDangerousModePermissionPrompt": true
 }
