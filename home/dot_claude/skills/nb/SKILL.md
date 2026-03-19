@@ -37,15 +37,8 @@ nb import move /path/to/file.md                          # Import by moving
 
 ## Editing
 
-**CRITICAL**: `--content` APPENDS by default!
-
-```bash
-nb edit <id> --content "text" --overwrite    # Replace entire content
-nb edit <id> --content "text"                # Append (rarely wanted)
-nb edit <id> --content "text" --prepend      # Prepend
-```
-
-For complex edits, directly modify files in `~/.nb/home/` then run `nb index reconcile`.
+Never use `nb edit` command.
+Directly modify files in `~/.nb/home/` then run `nb index reconcile`.
 
 ## Task Management
 
