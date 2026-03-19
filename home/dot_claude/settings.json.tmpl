@@ -52,6 +52,15 @@
             "timeout": 300
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/review-agent/hooks/session-start.sh"
+          }
+        ]
       }
     ],
     "UserPromptSubmit": [
@@ -103,6 +112,15 @@
             "type": "command",
             "command": "~/.claude/hooks/tmux-idle-pane-marker/stop.ts",
             "timeout": 300
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.config/review-agent/hooks/stop.sh"
           }
         ]
       }

@@ -26,6 +26,7 @@ alias qu="qmd update && qmd embed"
 alias todos="bun run ~/bin/check-todo.ts"
 alias dlm="yt-dlp -x --audio-format mp3"
 alias ghf='cd $(ghq root)/$(ghq list | fzf)'
+alias rai='dinii-internal__review-agent-integrator'
 
 # Yazi shell wrapper - cd to directory on exit
 function y() {
