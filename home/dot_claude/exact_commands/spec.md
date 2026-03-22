@@ -8,7 +8,7 @@ Don't focus on code exploration in this phase. Instead, just focus on writing re
 
 **Constraints:**
 
-- The model MUST create a 'docs/current/spec.md' file if it doesn't already exist
+- The model MUST create a 'docs/spec.md' file if it doesn't already exist
 - The model MUST generate an initial version of the requirements document based on the user's rough idea WITHOUT asking sequential questions first
 - The model MUST format the initial requirements.md document with:
   - A clear introduction section that summarizes the feature
