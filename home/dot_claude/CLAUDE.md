@@ -36,3 +36,5 @@ Whenever you've written plan, implementation or any artifact, use `opencode` CLI
 opencode run --agent critic "Review the plan at /path/to/plan.md" 2>/dev/null
 opencode run --agent critic "Review the code changes in `git diff`. See /path/to/spec.md" 2>/dev/null
 ```
+
+You must run the command in background.
