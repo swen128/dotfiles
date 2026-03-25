@@ -16,8 +16,7 @@
       "Edit",
       "Bash(ls:*)",
       "Bash(git commit:*)",
-      "Bash(git add:*)",
-      "mcp__pencil"
+      "Bash(git add:*)"
     ],
     "deny": [
       "WebSearch",
@@ -175,12 +174,21 @@
   "enabledPlugins": {
     "todo-enforcer@harness": false,
     "comment-checker@harness": true,
-    "dinii-kpi@dinii-tools": true,
-    "member-lookup@dinii-tools": false,
-    "slack-post-generator@dinii-tools": true,
     "typescript-lsp@claude-plugins-official": true,
-    "telegram@claude-plugins-official": true,
-    "ci-watcher-channel@harness": true
+    "telegram@claude-plugins-official": false,
+    "ci-watcher-channel@harness": true,
+    "ultra-debug@harness": true,
+    "dinii-kpi@dinii-plugin-market": true,
+    "slack-post-generator@dinii-plugin-market": true,
+    "member-lookup@dinii-plugin-market": true
+  },
+  "extraKnownMarketplaces": {
+    "dinii-plugin-market": {
+      "source": {
+        "source": "github",
+        "repo": "dinii-inc/dinii-plugin-market"
+      }
+    }
   },
   "skipDangerousModePermissionPrompt": true
 }
