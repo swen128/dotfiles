@@ -17,6 +17,8 @@ function _ws_list_worktrees() {
   local output
   output=$(git worktree list --porcelain 2>/dev/null) || return
 
+  local _ws_exclude_dir="$HOME/.config/review-agent-integrator/repos"
+
   local path="" branch=""
   while IFS= read -r line; do
     if [[ "$line" =~ ^worktree\ (.+) ]]; then
@@ -26,7 +28,7 @@ function _ws_list_worktrees() {
     elif [[ "$line" == "detached" ]]; then
       branch=""
     elif [[ -z "$line" ]]; then
-      if [[ -n "$path" ]]; then
+      if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* ]]; then
         _ws_wt_paths+=("$path")
         _ws_wt_branches+=("$branch")
         if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
@@ -40,7 +42,7 @@ function _ws_list_worktrees() {
     fi
   done <<< "$output"
 
-  if [[ -n "$path" ]]; then
+  if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* ]]; then
     _ws_wt_paths+=("$path")
     _ws_wt_branches+=("$branch")
     if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
