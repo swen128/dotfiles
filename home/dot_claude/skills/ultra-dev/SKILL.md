@@ -20,6 +20,9 @@ Then execute them in order:
 - Explore the codebase thoroughly to understand existing patterns and architecture
 - Use Plan agents to design the implementation
 - Write a detailed plan covering: files to change, interfaces to add, test strategy
+- Write interfaces in `.d.ts` files (types, function signatures, data structures)
+- List test descriptions (`it("should do XXX")`) to define expected behavior
+- The test plan must explicitly describe what will be mocked and what will use real implementations, with rationale
 - Get a critic review via `opencode run --agent critic` (run in background)
 - Present the plan to the user
 
@@ -28,16 +31,16 @@ Then execute them in order:
 - Ask the user to approve, adjust, or reject the plan
 - Iterate until approved
 
-### Implement interfaces and tests
+### Implement tests
 
-- Write only the public interfaces (types, function signatures, class stubs)
-- Write tests against those interfaces (tests should fail since implementation is stubbed)
-- Run the tests to confirm they fail for the right reasons
-- Present the interfaces and test results to the user
+- Fill in the test bodies for the `it` stubs written in the plan phase
+- Set up mocks as described in the test plan
+- Run the tests to confirm they fail for the right reasons (not due to import/syntax errors)
+- Present the test results to the user
 
-### Get user approval on interfaces and tests
+### Get user approval on tests
 
-- Ask the user to approve the interfaces and test design
+- Ask the user to approve the test implementations
 - Iterate until approved
 
 ### Implement the rest
