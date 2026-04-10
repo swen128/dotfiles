@@ -28,7 +28,7 @@ function _ws_list_worktrees() {
     elif [[ "$line" == "detached" ]]; then
       branch=""
     elif [[ -z "$line" ]]; then
-      if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* ]]; then
+      if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* && "$path" != /private/tmp/rai-review-fix* ]]; then
         _ws_wt_paths+=("$path")
         _ws_wt_branches+=("$branch")
         if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
@@ -42,7 +42,7 @@ function _ws_list_worktrees() {
     fi
   done <<< "$output"
 
-  if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* ]]; then
+  if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* && "$path" != /private/tmp/rai-review-fix* ]]; then
     _ws_wt_paths+=("$path")
     _ws_wt_branches+=("$branch")
     if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
