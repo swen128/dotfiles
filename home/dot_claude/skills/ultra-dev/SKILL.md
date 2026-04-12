@@ -64,3 +64,5 @@ Then execute them in order:
 
 - Mark each task as `in_progress` when starting and `completed` when done
 - Never skip an approval gate — always wait for user confirmation
+- During an approval gate, do NOTHING unless the user explicitly tells you to proceed. User feedback is feedback on the current step — never interpret it as permission to advance or to write implementation.
+- Never write implementation logic until the "Implement the rest" step. Before that step, every function body must be `throw new Error("Not implemented")`.
