@@ -143,17 +143,15 @@ function branchName(outcomes: { git_info?: { branches: string[] } }[]): string {
 }
 
 function sendEvent(sessionId: string, prompt: string) {
-  return api(`code/sessions/${sessionId}/events`, {
+  return api(`code/sessions/${toCse(sessionId)}/events`, {
     method: "POST",
-    beta: BETA_BYOC,
     body: {
       events: [
         {
-          type: "user",
-          uuid: crypto.randomUUID(),
-          session_id: sessionId,
-          parent_tool_use_id: null,
-          message: { role: "user", content: prompt },
+          payload: {
+            type: "user",
+            message: { role: "user", content: prompt },
+          },
         },
       ],
     },
