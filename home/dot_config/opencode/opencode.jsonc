@@ -150,8 +150,8 @@
     },
   },
   "plugin": [
-    "oh-my-opencode",
+    "oh-my-openagent",
     "opencode-openai-codex-auth",
-    "./plugins/env-vars.ts",
+    "./plugins/env-vars.ts"
   ],
 }
