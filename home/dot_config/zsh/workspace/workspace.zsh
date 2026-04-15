@@ -6,6 +6,22 @@
 # A workspace is a git worktree with a branch checked out.
 # Workspace name = branch name.
 
+# Paths matching any of these patterns are hidden from `ws`.
+# Patterns are defined inside the function so they survive shell-snapshot
+# environments that capture functions but not top-level variables.
+function _ws_is_excluded() {
+  local path="$1" pattern
+  local -a patterns=(
+    "$HOME/.config/review-agent-integrator/repos/*"
+    "/tmp/rai-review-*"
+    "/private/tmp/rai-review-*"
+  )
+  for pattern in "${patterns[@]}"; do
+    [[ "$path" == ${~pattern} ]] && return 0
+  done
+  return 1
+}
+
 # Parse `git worktree list --porcelain` output.
 # Sets arrays: _ws_wt_paths, _ws_wt_branches, _ws_wt_is_main
 # Branch is empty string for detached HEAD worktrees.
@@ -17,9 +33,8 @@ function _ws_list_worktrees() {
   local output
   output=$(git worktree list --porcelain 2>/dev/null) || return
 
-  local _ws_exclude_dir="$HOME/.config/review-agent-integrator/repos"
-
   local path="" branch=""
+  local -a pending_paths pending_branches
   while IFS= read -r line; do
     if [[ "$line" =~ ^worktree\ (.+) ]]; then
       path="${match[1]}"
@@ -27,30 +42,33 @@ function _ws_list_worktrees() {
       branch="${line#branch refs/heads/}"
     elif [[ "$line" == "detached" ]]; then
       branch=""
-    elif [[ -z "$line" ]]; then
-      if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* && "$path" != /private/tmp/rai-review-fix* ]]; then
-        _ws_wt_paths+=("$path")
-        _ws_wt_branches+=("$branch")
-        if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
-          _ws_wt_is_main+=(true)
-        else
-          _ws_wt_is_main+=(false)
-        fi
-      fi
+    elif [[ -z "$line" && -n "$path" ]]; then
+      pending_paths+=("$path")
+      pending_branches+=("$branch")
       path=""
       branch=""
     fi
   done <<< "$output"
+  if [[ -n "$path" ]]; then
+    pending_paths+=("$path")
+    pending_branches+=("$branch")
+  fi
 
-  if [[ -n "$path" && "$path" != "$_ws_exclude_dir"/* && "$path" != /private/tmp/rai-review-fix* ]]; then
-    _ws_wt_paths+=("$path")
-    _ws_wt_branches+=("$branch")
+  local i
+  for i in {1..${#pending_paths[@]}}; do
+    local p="${pending_paths[$i]}"
+    # Never exclude the main worktree (index 1), regardless of path.
+    if [[ $i -gt 1 ]] && _ws_is_excluded "$p"; then
+      continue
+    fi
+    _ws_wt_paths+=("$p")
+    _ws_wt_branches+=("${pending_branches[$i]}")
     if [[ ${#_ws_wt_paths[@]} -eq 1 ]]; then
       _ws_wt_is_main+=(true)
     else
       _ws_wt_is_main+=(false)
     fi
-  fi
+  done
 }
 
 # Get the main worktree path
@@ -368,31 +386,12 @@ function _ws_create_worktree() {
 
 # Helper: get active workspace names (branches in pool worktrees)
 function _ws_active_names() {
-  local output
-  output=$(git worktree list --porcelain 2>/dev/null) || return
-
-  local path="" branch="" is_first=true
-  while IFS= read -r line; do
-    if [[ "$line" =~ ^worktree\ (.+) ]]; then
-      path="${match[1]}"
-    elif [[ "$line" == "branch refs/heads/"* ]]; then
-      branch="${line#branch refs/heads/}"
-    elif [[ "$line" == "detached" ]]; then
-      branch=""
-    elif [[ -z "$line" ]]; then
-      if [[ "$is_first" == true ]]; then
-        is_first=false
-      elif [[ -n "$branch" ]]; then
-        echo "$branch"
-      fi
-      path=""
-      branch=""
-    fi
-  done <<< "$output"
-
-  if [[ -n "$path" && "$is_first" == false && -n "$branch" ]]; then
-    echo "$branch"
-  fi
+  _ws_list_worktrees
+  local i
+  for i in {1..${#_ws_wt_paths[@]}}; do
+    [[ "${_ws_wt_is_main[$i]}" == "true" ]] && continue
+    [[ -n "${_ws_wt_branches[$i]}" ]] && echo "${_ws_wt_branches[$i]}"
+  done
 }
 
 function _ws() {
