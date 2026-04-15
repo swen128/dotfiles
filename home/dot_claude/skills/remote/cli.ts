@@ -143,11 +143,13 @@ function branchName(outcomes: { git_info?: { branches: string[] } }[]): string {
 }
 
 function sendEvent(sessionId: string, prompt: string) {
-  return api(`code/sessions/${toCse(sessionId)}/events`, {
+  const cseId = toCse(sessionId);
+  return api(`code/sessions/${cseId}/events`, {
     method: "POST",
     body: {
       events: [
         {
+          event_type: "user",
           payload: {
             type: "user",
             message: { role: "user", content: prompt },
@@ -159,19 +161,18 @@ function sendEvent(sessionId: string, prompt: string) {
 }
 
 async function cmdSpawn(args: string[]): Promise<void> {
-  let model = DEFAULT_MODEL;
   let envId: string | undefined;
+  let repo: string | undefined;
+  let branch: string | undefined;
   const promptArgs: string[] = [];
 
   for (let i = 0; i < args.length; i++) {
-    if (args[i] === "--model" && args[i + 1]) {
-      const m = args[++i];
-      if (m === "sonnet") model = "claude-sonnet-4-6";
-      else if (m === "haiku") model = "claude-haiku-4-5-20251001";
-      else if (m === "opus") model = DEFAULT_MODEL;
-      else model = m;
-    } else if (args[i] === "--env" && args[i + 1]) {
+    if (args[i] === "--env" && args[i + 1]) {
       envId = args[++i];
+    } else if (args[i] === "--repo" && args[i + 1]) {
+      repo = args[++i];
+    } else if (args[i] === "--branch" && args[i + 1]) {
+      branch = args[++i];
     } else {
       promptArgs.push(args[i]);
     }
@@ -191,9 +192,38 @@ async function cmdSpawn(args: string[]): Promise<void> {
     }
   }
 
+  if (!repo) {
+    const proc = Bun.spawn(["git", "remote", "get-url", "origin"], { stdout: "pipe", stderr: "pipe" });
+    const url = (await new Response(proc.stdout).text()).trim();
+    await proc.exited;
+    if (url) {
+      const match = url.match(/github\.com[:/](.+?)(?:\.git)?$/);
+      if (match) repo = match[1];
+    }
+  }
+  if (!branch) {
+    const proc = Bun.spawn(["git", "rev-parse", "--abbrev-ref", "HEAD"], { stdout: "pipe", stderr: "pipe" });
+    const br = (await new Response(proc.stdout).text()).trim();
+    await proc.exited;
+    if (br && br !== "HEAD") branch = br;
+  }
+
+  const config: Record<string, unknown> = { model: DEFAULT_MODEL };
+  if (repo) {
+    const repoUrl = repo.startsWith("https://") ? repo : `https://github.com/${repo}`;
+    config.sources = [
+      {
+        type: "git_repository",
+        url: repoUrl,
+        revision: branch || "main",
+        allow_unrestricted_git_push: true,
+      },
+    ];
+  }
+
   const created = await api<{ session: { id: string } }>("code/sessions", {
     method: "POST",
-    body: { environment_id: envId, config: { model } },
+    body: { environment_id: envId, config },
   });
   const cseId = created.session.id;
   const sessionId = toSession(cseId);
@@ -237,10 +267,9 @@ async function cmdResult(sessionId: string, messagesN?: number): Promise<void> {
     const turns: { role: string; text: string }[] = [];
     for (const ev of data.data) {
       if (turns.length >= messagesN) break;
-      if (ev.event_type === "user" || ev.event_type === "assistant") {
-        const msg = ev.payload.message;
-        if (!msg) continue;
-        const content = msg.content;
+      if (ev.event_type === "user" || ev.event_type === "user.message" || ev.event_type === "assistant") {
+        const content = ev.payload.message?.content ?? ev.payload.content;
+        const role = ev.payload.message?.role ?? (ev.event_type === "assistant" ? "assistant" : "user");
         let text: string;
         if (typeof content === "string") {
           text = content;
@@ -253,7 +282,7 @@ async function cmdResult(sessionId: string, messagesN?: number): Promise<void> {
           continue;
         }
         if (!text) continue;
-        turns.push({ role: msg.role, text });
+        turns.push({ role, text });
       }
     }
     for (const t of turns.reverse()) {
@@ -367,8 +396,8 @@ async function cmdNoAutoFix(sessionId: string, explicitRepo?: string, explicitPr
       `code/sessions/${cseId}/events?limit=50`,
     );
     for (const ev of events.data) {
-      if (ev.event_type === "user") {
-        const content = ev.payload.message?.content;
+      if (ev.event_type === "user" || ev.event_type === "user.message") {
+        const content = ev.payload.message?.content || ev.payload.content;
         if (typeof content === "string") {
           const match = content.match(/subscribed to PR activity for .+#(\d+)/);
           if (match) {
@@ -515,7 +544,8 @@ Prompt can be passed as argument or piped via stdin.
 Session IDs accept both cse_ and session_ prefixes.
 
 Options for spawn:
-  --model <model>    Model alias (opus, sonnet, haiku) or full ID. Default: opus
-  --env <env-id>     Environment ID to reuse. Default: auto-detect`);
+  --repo <owner/repo>  GitHub repo (default: auto-detect from git remote)
+  --branch <branch>    Branch to check out (default: auto-detect from HEAD)
+  --env <env-id>       Environment ID to reuse (default: auto-detect)`);
     if (command) process.exit(1);
 }
