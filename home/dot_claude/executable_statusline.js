@@ -31,8 +31,12 @@ const formatRemaining = (resetsAt) => {
   const diffMs = resetsAt * 1000 - Date.now();
   if (diffMs <= 0) return "";
   const totalMin = Math.ceil(diffMs / 60000);
-  const h = Math.floor(totalMin / 60);
+  const totalHours = Math.floor(totalMin / 60);
+  const d = Math.floor(totalHours / 24);
+  const h = totalHours % 24;
   const m = totalMin % 60;
+  if (d > 0 && h > 0) return ` (${d}d${h}h)`;
+  if (d > 0) return ` (${d}d)`;
   if (h > 0 && m > 0) return ` (${h}h${m}m)`;
   if (h > 0) return ` (${h}h)`;
   return ` (${m}m)`;
