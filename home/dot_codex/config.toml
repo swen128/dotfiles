@@ -1,0 +1,21 @@
+network_access = true
+
+approval_policy = "on-request"
+sandbox_mode    = "workspace-write"
+
+[tui]
+notifications = true
+
+[features]
+rmcp_client = true
+
+[mcp_servers.notion]
+enabled = true
+type = "http"
+url = "https://mcp.notion.com/mcp"
+
+[shell_environment_policy]
+set = { CLAUDECODE = "1", AGENT="1" }
+
+[sandbox_workspace_write]
+network_access = true
