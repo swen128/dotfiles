@@ -2,9 +2,15 @@ network_access = true
 
 approval_policy = "on-request"
 sandbox_mode    = "workspace-write"
+model = "gpt-5.5"
+model_reasoning_effort = "xhigh"
 
 [tui]
 notifications = true
+status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-used", "five-hour-limit", "weekly-limit"]
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
 
 [features]
 rmcp_client = true
