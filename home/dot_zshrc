@@ -23,9 +23,6 @@ alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
 alias ccr="caffeinate -i claude remote-control --spawn=same-dir"
 alias cdd="codex --dangerously-bypass-approvals-and-sandbox"
 alias cs="claude-sessions"
-alias qq="qmd query"
-alias qu="qmd update && qmd embed"
-alias todos="bun run ~/bin/check-todo.ts"
 alias dlm="yt-dlp -x --audio-format mp3"
 alias ghf='cd $(ghq root)/$(ghq list | fzf)'
 alias rai='dinii-internal__review-agent-integrator'
