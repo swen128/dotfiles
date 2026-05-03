@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "@opencode-ai/plugin": "^0.4.1",
+    "@opencode-ai/plugin": "^1.14.0",
     "@types/bun": "latest"
   },
   "peerDependencies": {

@@ -5,3 +5,7 @@ Library/
 home/dot_config/karabiner/
 {{ end }}
 
+.config/opencode/plugins/monitor-tool/package.json
+.config/opencode/plugins/monitor-tool/monitor.test.ts
+.config/opencode/plugins/monitor-tool/bun.lock
+.config/opencode/plugins/monitor-tool/node_modules

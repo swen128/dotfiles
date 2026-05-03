@@ -1,0 +1,14 @@
+{
+  "name": "opencode-monitor-tool-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "bun test"
+  },
+  "devDependencies": {
+    "@opencode-ai/plugin": "latest",
+    "@opencode-ai/sdk": "latest",
+    "@types/bun": "latest",
+    "eventsource": "*"
+  }
+}
