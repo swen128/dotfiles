@@ -65,3 +65,36 @@ vim.keymap.set("n", "<leader>fyP", function()
   vim.fn.setreg('"', absolute)
   vim.notify(("Copied %s to clipboard"):format(absolute), vim.log.levels.INFO, { title = "Copy path" })
 end, { desc = "Copy absolute path" })
+
+vim.api.nvim_create_user_command("Walkthrough", function(opts)
+  require("walkthrough").start(opts.args)
+end, { nargs = 1, complete = "file", desc = "Start walkthrough from JSON file" })
+vim.api.nvim_create_user_command("WalkthroughNext", function() require("walkthrough").next() end, {})
+vim.api.nvim_create_user_command("WalkthroughPrev", function() require("walkthrough").prev() end, {})
+vim.api.nvim_create_user_command("WalkthroughClose", function() require("walkthrough").close() end, {})
+vim.api.nvim_create_user_command("WalkthroughToggle", function() require("walkthrough").toggle_float() end, { desc = "Toggle walkthrough note float" })
+vim.api.nvim_create_user_command("WalkthroughFocus", function() require("walkthrough").focus_float() end, { desc = "Focus walkthrough note float (yank text from it)" })
+vim.api.nvim_create_user_command("WalkthroughStatus", function() require("walkthrough").status() end, {})
+vim.api.nvim_create_user_command("WalkthroughGoto", function(opts)
+  local idx = tonumber(opts.args)
+  if not idx then
+    vim.notify("Walkthrough: :WalkthroughGoto <step-number>", vim.log.levels.ERROR)
+    return
+  end
+  require("walkthrough").goto_step(idx)
+end, { nargs = 1, desc = "Jump to walkthrough step N" })
+
+vim.keymap.set("n", "]w", function() require("walkthrough").next() end, { desc = "Walkthrough: next step" })
+vim.keymap.set("n", "[w", function() require("walkthrough").prev() end, { desc = "Walkthrough: prev step" })
+vim.keymap.set("n", "<leader>wq", function() require("walkthrough").close() end, { desc = "Walkthrough: close" })
+vim.keymap.set("n", "<leader>wt", function() require("walkthrough").toggle_float() end, { desc = "Walkthrough: toggle note float" })
+vim.keymap.set("n", "<leader>w<CR>", function() require("walkthrough").focus_float() end, { desc = "Walkthrough: focus note float" })
+vim.keymap.set("n", "<leader>wR", function() require("walkthrough").reload() end, { desc = "Walkthrough: reload + restart" })
+vim.keymap.set("n", "<leader>wg", function()
+  local n = vim.v.count
+  if n == 0 then
+    vim.notify("Walkthrough: prefix with step number, e.g. 3<leader>wg", vim.log.levels.WARN)
+    return
+  end
+  require("walkthrough").goto_step(n)
+end, { desc = "Walkthrough: goto step [count]" })
