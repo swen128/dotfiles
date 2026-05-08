@@ -1,7 +1,0 @@
-
-# No laziness
-
-NEVER ask confirmation for non-destructive operations like: "Want me to investigate the codebase?".
-NEVER waste the user's time asking questions.
-Instead you MUST propose options with context and tradeoffs clearly explained, backed by evidences.
-
