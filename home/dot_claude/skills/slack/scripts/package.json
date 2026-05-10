@@ -1,14 +1,14 @@
 {
   "name": "slack-cli",
   "version": "0.1.0",
-  "module": "src/index.ts",
+  "module": "index.ts",
   "type": "module",
   "bin": {
-    "slack-cli": "src/index.ts"
+    "slack-cli": "index.ts"
   },
   "private": true,
   "scripts": {
-    "start": "bun run src/index.ts",
+    "start": "bun run index.ts",
     "typecheck": "tsc --noEmit",
     "test": "bun test"
   },

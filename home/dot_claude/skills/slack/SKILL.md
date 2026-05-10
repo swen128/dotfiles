@@ -6,19 +6,19 @@ description: 'Use this skill whenever the user wants to do anything with Slack. 
 ## Setup (run once per machine)
 
 ```bash
-cd "${CLAUDE_SKILL_DIR}" && bun install
+cd scripts && bun install
 ```
 
 ## How to invoke
 
 ```bash
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" <subcommand>
+scripts/index.ts <subcommand>
 ```
 
 ## Authentication
 
 ```bash
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" login --set-default
+scripts/index.ts login --set-default
 ```
 
 The command blocks until the user completes OAuth in their browser (or it times out at 5 minutes).
@@ -29,29 +29,29 @@ Do NOT run `login` proactively. Just run the command the user wanted (`post`, `s
 
 ```bash
 # plain text
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --text 'hello'
+scripts/index.ts post --channel '#general' --text 'hello'
 
 # Block Kit from stdin
 echo '[{"type":"section","text":{"type":"mrkdwn","text":"*hi*"}}]' \
-  | bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --blocks -
+  | scripts/index.ts post --channel '#general' --blocks -
 
 # Block Kit from file
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --blocks-file blocks.json
+scripts/index.ts post --channel '#general' --blocks-file blocks.json
 
 # thread reply (and broadcast back to channel)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel C0123 --thread-ts 1714600000.000000 --text 'reply' [--broadcast]
+scripts/index.ts post --channel C0123 --thread-ts 1714600000.000000 --text 'reply' [--broadcast]
 
 # edit / delete (only your own messages)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel C0123 --update 1714600000.000000 --text 'edited'
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel C0123 --delete 1714600000.000000
+scripts/index.ts post --channel C0123 --update 1714600000.000000 --text 'edited'
+scripts/index.ts post --channel C0123 --delete 1714600000.000000
 
 # attach metadata
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --text 'event' \
+scripts/index.ts post --channel '#general' --text 'event' \
   --metadata '{"event_type":"deploy","event_payload":{"sha":"abc"}}'
 
 # schedule for the future (unix seconds, ISO 8601, or +1h/+30m/+2d)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --text 'morning standup' --schedule '2026-05-03T09:00:00+09:00'
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" post --channel '#general' --text 'reminder' --schedule '+1h'
+scripts/index.ts post --channel '#general' --text 'morning standup' --schedule '2026-05-03T09:00:00+09:00'
+scripts/index.ts post --channel '#general' --text 'reminder' --schedule '+1h'
 # returns { ok, scheduled: { channel, scheduled_message_id, post_at, post_at_iso } }
 ```
 
@@ -65,10 +65,10 @@ Output: `{ ok, channel, ts, permalink }`.
 
 ```bash
 # fetch one message by permalink (URL has no thread_ts)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" read 'https://example.slack.com/archives/C0123/p1714600000123456'
+scripts/index.ts read 'https://example.slack.com/archives/C0123/p1714600000123456'
 
 # fetch a whole thread (URL has thread_ts; passing any reply's URL also works)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" read 'https://example.slack.com/archives/C0123/p1714600005123456?thread_ts=1714600000.123456&cid=C0123'
+scripts/index.ts read 'https://example.slack.com/archives/C0123/p1714600005123456?thread_ts=1714600000.123456&cid=C0123'
 ```
 
 Permalinks are emitted on every other CLI output (`post`, `search`, `read`, `watch`), so callers always have one to feed back in.
@@ -89,13 +89,13 @@ When `thread_ts` is null, `messages` has one entry. When set, parent first then 
 
 ```bash
 # by file id
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" files download --file-id F0ABC123 --out ./image.png
+scripts/index.ts files download --file-id F0ABC123 --out ./image.png
 
 # by url_private (when you already have it from a `read` output)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" files download --url 'https://files.slack.com/files-pri/.../file.png' --out ./image.png
+scripts/index.ts files download --url 'https://files.slack.com/files-pri/.../file.png' --out ./image.png
 ```
 
-The user token must have **`files:read`** scope. If the token was issued before `files:read` was in the manifest, the CLI surfaces `missing_scope` (exit 10). To fix: regenerate the manifest (`bun "${CLAUDE_SKILL_DIR}/src/index.ts" app manifest`), update the app at <https://api.slack.com/apps> → "App Manifest", reinstall, and run `bun "${CLAUDE_SKILL_DIR}/src/index.ts" login` again. The CLI also detects when Slack serves an HTML login page in lieu of file bytes (a sign the token's scopes are stale) and aborts before writing garbage to disk.
+The user token must have **`files:read`** scope. If the token was issued before `files:read` was in the manifest, the CLI surfaces `missing_scope` (exit 10). To fix: regenerate the manifest (`scripts/index.ts app manifest`), update the app at <https://api.slack.com/apps> → "App Manifest", reinstall, and run `scripts/index.ts login` again. The CLI also detects when Slack serves an HTML login page in lieu of file bytes (a sign the token's scopes are stale) and aborts before writing garbage to disk.
 
 Output:
 ```json
@@ -105,10 +105,10 @@ Output:
 ## Searching
 
 ```bash
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" search 'in:#engineering deploy after:2026-01-01'
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" search 'spec.md' --files
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" search 'foo' --count 50 --cursor '*'
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" search 'foo' --sort timestamp --sort-dir asc
+scripts/index.ts search 'in:#engineering deploy after:2026-01-01'
+scripts/index.ts search 'spec.md' --files
+scripts/index.ts search 'foo' --count 50 --cursor '*'
+scripts/index.ts search 'foo' --sort timestamp --sort-dir asc
 ```
 
 Slack search modifiers (`in:`, `from:`, `before:`, `after:`, `has:`, `is:`) pass through unchanged. Mentions of a user are expressed as `<@U…>` literal tokens.
@@ -123,15 +123,15 @@ Note: Slack's `search.messages` doesn't always return `next_cursor` even when `t
 
 ```bash
 # stream forever (until SIGINT/SIGTERM)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" watch mentions
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" watch channel '#alerts'
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" watch thread C0123 1714600000.000000
+scripts/index.ts watch mentions
+scripts/index.ts watch channel '#alerts'
+scripts/index.ts watch thread C0123 1714600000.000000
 
 # one poll cycle then exit (cron-friendly)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" watch mentions --once
+scripts/index.ts watch mentions --once
 
 # auto-exit after a duration
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" watch channel C0123 --timeout 1h
+scripts/index.ts watch channel C0123 --timeout 1h
 ```
 
 Subcommand details:
@@ -145,16 +145,16 @@ Each NDJSON line: `{ kind, channel: {id, name}, user: {id, name}, ts, thread_ts,
 
 ```bash
 # users by name / real_name / display_name / email (substring, case-insensitive)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" users find ogino
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" users find yuto.ogino@example.com
+scripts/index.ts users find ogino
+scripts/index.ts users find yuto.ogino@example.com
 
 # channels by name (substring)
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" channels find general
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" channels find dev --include-archived
+scripts/index.ts channels find general
+scripts/index.ts channels find dev --include-archived
 
 # full profile (status, timezone, title, custom fields, images) — accepts Uxxx, @handle, or email
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" users profile @yuto.ogino
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" users profile U07LXF25WHF
+scripts/index.ts users profile @yuto.ogino
+scripts/index.ts users profile U07LXF25WHF
 ```
 
 `users find` / `channels find` use the local 24h cache (refreshed on miss); `users profile` always hits `users.profile.get`. Output:
@@ -167,11 +167,11 @@ bun "${CLAUDE_SKILL_DIR}/src/index.ts" users profile U07LXF25WHF
 ## Workspaces & multi-workspace
 
 ```bash
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" workspaces list                          # JSON list of authed workspaces
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" workspaces set-default <id|domain|name>
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" logout                                   # default workspace
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" logout --workspace acme
-bun "${CLAUDE_SKILL_DIR}/src/index.ts" logout --all
+scripts/index.ts workspaces list                          # JSON list of authed workspaces
+scripts/index.ts workspaces set-default <id|domain|name>
+scripts/index.ts logout                                   # default workspace
+scripts/index.ts logout --workspace acme
+scripts/index.ts logout --all
 ```
 
 Every non-auth subcommand accepts `--workspace <id|domain|name>` to target a specific workspace. The `SLACK_CLI_WORKSPACE` env var is also honoured.
