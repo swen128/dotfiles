@@ -1,6 +1,7 @@
+#!/usr/bin/env bun
 /*
 reminders — manage macOS Reminders from the CLI (AI-facing, JSON I/O).
-Invoke via: bun "${CLAUDE_SKILL_DIR}/reminders.ts" <subcommand>
+Invoke via: scripts/reminders.ts <subcommand>
 
 Usage:
   reminders ls [list]                  JSON array of open reminders {id, name, list, due}

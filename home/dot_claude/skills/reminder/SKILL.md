@@ -3,7 +3,7 @@ name: reminder
 description: 'Manage macOS Reminders from the CLI. Triggers on phrases like "remind me to ...", "add a reminder", "list my reminders", "complete the reminder about ...", "delete the reminder"'
 ---
 
-Invoke: `bun "${CLAUDE_SKILL_DIR}/reminders.ts" <args>`
+Invoke: `scripts/reminders.ts <args>`
 
 ```
 ls [list]                                JSON [{id, name, list, due}]
