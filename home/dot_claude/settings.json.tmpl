@@ -12,6 +12,7 @@
     "OTEL_EXPORTER_OTLP_PROTOCOL": "http/protobuf",
     "OTEL_EXPORTER_OTLP_ENDPOINT": "{{ onepasswordRead "op://Private/Claude Code OTel endpoint/notesPlain" "T3XVGBQA4RARTJY6RQA2NDNZYI" }}"
   },
+  "includeGitInstructions": false,
   "permissions": {
     "allow": [
       "Edit",
@@ -184,7 +185,8 @@
     "customer-insights@dinii-plugin-market": true,
     "oncall@dinii-plugin-market": true,
     "daily-report@dinii-plugin-market": true,
-    "auth-platform@dinii-plugin-market": true
+    "auth-platform@dinii-plugin-market": true,
+    "ai-phase-judge@dinii-plugin-market": true
   },
   "extraKnownMarketplaces": {
     "dinii-plugin-market": {
@@ -199,5 +201,6 @@
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "vim",
-  "agentPushNotifEnabled": true
+  "agentPushNotifEnabled": true,
+  "skipAutoPermissionPrompt": true
 }
