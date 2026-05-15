@@ -124,6 +124,7 @@ export type NotificationInput = HookInputBase & {
 export type StopInput = HookInputBase & {
   hook_event_name: "Stop";
   stop_hook_active: boolean;
+  last_assistant_message?: string;
 };
 
 export type SubagentStartInput = HookInputBase & {
@@ -138,6 +139,7 @@ export type SubagentStopInput = HookInputBase & {
   agent_id: string;
   agent_type: string;
   agent_transcript_path: string;
+  last_assistant_message?: string;
 };
 
 export type TeammateIdleInput = HookInputBase & {
@@ -248,6 +250,10 @@ export type SystemMessageJsonOutput = {
   systemMessage?: string;
   suppressOutput?: boolean;
 };
+
+export type PromptHookJsonOutput =
+  | { ok: true }
+  | { ok: false; reason: string };
 
 export type Allow = { readonly decision: "allow" };
 export type Block = { readonly decision: "block"; readonly message: string };
