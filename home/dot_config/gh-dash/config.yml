@@ -25,6 +25,7 @@ defaults:
   preview:
     open: true
     width: 50
+  prApproveComment: ""
   prsLimit: 20
   issuesLimit: 20
   view: prs
