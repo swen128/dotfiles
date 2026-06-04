@@ -19,10 +19,10 @@ alias sb="tmux capture-pane -pS -"
 alias ta="tmux attach"
 alias ls="eza -lh"
 alias oc="opencode"
-alias ccd="claude --append-system-prompt-file ~/.claude/system-prompt-append.txt --dangerously-skip-permissions --teammate-mode in-process"
+alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
 alias ccr="caffeinate -i claude --append-system-prompt-file ~/.claude/system-prompt-append.txt remote-control --spawn=same-dir"
 alias cdd="codex --dangerously-bypass-approvals-and-sandbox"
-alias cs="claude-sessions"
+alias ccs="ccsession --exclude-reviewer --since 14d -- --dangerously-skip-permissions --teammate-mode in-process"
 alias dlm="yt-dlp -x --audio-format mp3"
 alias ghf='cd $(ghq root)/$(ghq list | fzf)'
 alias rai='dinii-internal__review-agent-integrator'

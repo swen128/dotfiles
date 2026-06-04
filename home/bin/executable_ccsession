@@ -1,0 +1,1218 @@
+#!/usr/bin/env bun
+import { readdir, open, readFile, stat } from "node:fs/promises";
+import { createReadStream } from "node:fs";
+import { createInterface } from "node:readline";
+import { join, basename, dirname } from "node:path";
+import { homedir } from "node:os";
+import { spawnSync } from "node:child_process";
+
+const VERSION = "0.1.0-ts";
+
+process.stdout.on("error", (e: any) => {
+  if (e?.code === "EPIPE") process.exit(0);
+  throw e;
+});
+
+const ANSI = {
+  Reset: "\x1b[0m",
+  Bold: "\x1b[1m",
+  Dim: "\x1b[2m",
+  Cyan: "\x1b[36m",
+  Green: "\x1b[32m",
+  Yellow: "\x1b[33m",
+  Highlight: "\x1b[7m",
+};
+
+const EXCLUDE_DIR_ENV = "CCSESSION_EXCLUDE_DIR";
+const EXCLUDE_REVIEWER_ENV = "CCSESSION_EXCLUDE_REVIEWER";
+const REVIEWER_SIGNATURE_ENV = "CCSESSION_REVIEWER_SIGNATURE";
+const SINCE_ENV = "CCSESSION_SINCE";
+const CLAUDE_ARGS_ENV = "CCSESSION_CLAUDE_ARGS";
+const GREP_FILELIST_MAX = 3000;
+const BIND_GREP_ENV = "CCSESSION_BIND_GREP";
+const BIND_DIR_ENV = "CCSESSION_BIND_DIR";
+const BIND_FUZZY_ENV = "CCSESSION_BIND_FUZZY";
+
+const TAIL_READ_BYTES = 64 * 1024;
+const LABEL_MAX_LEN = 200;
+
+const REVIEWER_DEFAULT_SIGNATURES = [
+  "AI code review system",
+  "code review strategy executor",
+  "Phase-2 validator",
+];
+const REVIEWER_HEAD_BYTES = 256 * 1024;
+
+function reviewerSignatures(): string[] {
+  const override = process.env[REVIEWER_SIGNATURE_ENV];
+  if (override) return override.split(",").map((s) => s.trim()).filter(Boolean);
+  return REVIEWER_DEFAULT_SIGNATURES;
+}
+
+async function isReviewerSession(path: string, signatures: string[]): Promise<boolean> {
+  const fh = await open(path, "r").catch(() => null);
+  if (!fh) return false;
+  try {
+    const buf = Buffer.allocUnsafe(REVIEWER_HEAD_BYTES);
+    const { bytesRead } = await fh.read(buf, 0, REVIEWER_HEAD_BYTES, 0);
+    const text = buf.toString("utf8", 0, bytesRead);
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      let e: any;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (e.type === "user" && e.message) {
+        const body = extractText(e.message.content, " ");
+        if (signatures.some((sig) => body.includes(sig))) return true;
+      }
+    }
+  } catch {
+  } finally {
+    await fh.close();
+  }
+  return false;
+}
+
+async function filterOutReviewers(sessions: Session[]): Promise<Session[]> {
+  const signatures = reviewerSignatures();
+  const concurrency = Math.max((navigator?.hardwareConcurrency ?? 4) * 2, 4);
+  const flags = await mapConcurrent(sessions, concurrency, (s) =>
+    isReviewerSession(s.jsonlPath, signatures),
+  );
+  return sessions.filter((_, i) => !flags[i]);
+}
+
+function parseTime(raw: string | undefined): Date | null {
+  if (!raw) return null;
+  const ms = Date.parse(raw);
+  if (Number.isNaN(ms)) return null;
+  return new Date(ms);
+}
+
+function relative(t: Date | null, now: Date): string {
+  if (!t) return "?";
+  let ref = t;
+  if (ref.getTime() > now.getTime()) ref = now;
+  const d = now.getTime() - ref.getTime();
+  const min = 60_000, hour = 3_600_000, day = 86_400_000;
+  if (d < min) return "just now";
+  if (d < hour) return `${Math.floor(d / min)}m ago`;
+  if (d < day) return `${Math.floor(d / hour)}h ago`;
+  if (d < 7 * day) return `${Math.floor(d / day)}d ago`;
+  return formatDate(ref);
+}
+
+function relativeOrFuture(t: Date | null, now: Date): string {
+  if (t && t.getTime() > now.getTime()) return "in the future";
+  return relative(t, now);
+}
+
+function formatDate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function formatDateTime(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDate(d)} ${hh}:${mm}`;
+}
+
+function formatHM(d: Date): string {
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+function extractText(content: unknown, sep: string): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    const parts: string[] = [];
+    for (const block of content) {
+      if (block && typeof block === "object" &&
+          (block as any).type === "text" && (block as any).text) {
+        parts.push((block as any).text);
+      }
+    }
+    return parts.join(sep);
+  }
+  return "";
+}
+
+function truncate(s: string, n: number): string {
+  if (n <= 0) return s;
+  const runes = Array.from(s);
+  if (runes.length <= n) return s;
+  return runes.slice(0, n - 1).join("") + "…";
+}
+
+function firstNonEmpty(...values: string[]): string {
+  for (const v of values) if (v && v.trim() !== "") return v;
+  return "";
+}
+
+function sanitizeLabel(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const c = ch.codePointAt(0)!;
+    out += c < 0x20 || c === 0x7f ? " " : ch;
+  }
+  out = out.split(/\s+/).filter(Boolean).join(" ");
+  return truncate(out, LABEL_MAX_LEN);
+}
+
+interface Session {
+  id: string;
+  projectDir: string;
+  jsonlPath: string;
+  cwd: string;
+  cwdBasename: string;
+  label: string;
+  lastTime: Date | null;
+  lastEpoch: number;
+  cwdExists: boolean;
+  cwdUnknown: boolean;
+}
+
+const ERR_FILE_MISSING = "ccsession:err:file-missing";
+const ERR_EMPTY = "ccsession:err:empty";
+
+function projectsDir(): string {
+  const base = process.env.CLAUDE_CONFIG_DIR;
+  if (base) return join(base, "projects");
+  return join(homedir(), ".claude", "projects");
+}
+
+function encodeCWD(cwd: string): string {
+  return cwd.replaceAll("/", "-");
+}
+
+function restoreCWDFromDir(dir: string): string {
+  let base = basename(dir);
+  if (base.startsWith("-")) base = base.slice(1);
+  return "/" + base.replaceAll("-", "/");
+}
+
+async function pathIsDir(p: string): Promise<boolean> {
+  if (!p) return false;
+  try {
+    return (await stat(p)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+async function collectJSONLPaths(base: string): Promise<string[]> {
+  let projDirs;
+  try {
+    projDirs = await readdir(base, { withFileTypes: true });
+  } catch (e: any) {
+    if (e?.code === "ENOENT") return [];
+    throw e;
+  }
+  const paths: string[] = [];
+  for (const pd of projDirs) {
+    if (!pd.isDirectory()) continue;
+    const dir = join(base, pd.name);
+    let files;
+    try {
+      files = await readdir(dir);
+    } catch {
+      continue;
+    }
+    for (const name of files) {
+      if (!name.endsWith(".jsonl")) continue;
+      if (name.startsWith("agent-")) continue;
+      paths.push(join(dir, name));
+    }
+  }
+  return paths;
+}
+
+function parseSince(spec: string): number | null {
+  const s = spec.trim();
+  if (!s || s === "all" || s === "0") return null;
+  const m = s.match(/^(\d+)\s*([smhdw])$/i);
+  if (m) {
+    const n = parseInt(m[1], 10);
+    const unit = m[2].toLowerCase();
+    const mult = unit === "s" ? 1 : unit === "m" ? 60 : unit === "h" ? 3600 : unit === "d" ? 86400 : 604800;
+    return Math.floor(Date.now() / 1000) - n * mult;
+  }
+  const ms = Date.parse(s);
+  if (!Number.isNaN(ms)) return Math.floor(ms / 1000);
+  throw new Error(`invalid --since value: ${spec} (use e.g. 14d, 24h, 30m, or 2026-06-01)`);
+}
+
+async function filterByMtime(paths: string[], cutoff: number | null): Promise<string[]> {
+  if (cutoff == null) return paths;
+  const concurrency = Math.max((navigator?.hardwareConcurrency ?? 4) * 2, 4);
+  const kept = await mapConcurrent(paths, concurrency, async (p) => {
+    try {
+      return (await stat(p)).mtimeMs / 1000 >= cutoff ? p : null;
+    } catch {
+      return null;
+    }
+  });
+  return kept.filter((p): p is string => p !== null);
+}
+
+async function readTail(path: string, maxBytes: number): Promise<string> {
+  const fh = await open(path, "r");
+  try {
+    const { size } = await fh.stat();
+    if (size === 0) return "";
+    let offset = 0;
+    let length = size;
+    if (size > maxBytes) {
+      offset = size - maxBytes;
+      length = maxBytes;
+    }
+    const buf = Buffer.allocUnsafe(length);
+    await fh.read(buf, 0, length, offset);
+    let text = buf.toString("utf8");
+    if (offset > 0) {
+      const i = text.indexOf("\n");
+      if (i >= 0) text = text.slice(i + 1);
+    }
+    return text;
+  } finally {
+    await fh.close();
+  }
+}
+
+async function readStartCWD(path: string): Promise<string> {
+  const buf = Buffer.allocUnsafe(64 * 1024);
+  const fh = await open(path, "r");
+  try {
+    const { bytesRead } = await fh.read(buf, 0, buf.length, 0);
+    const text = buf.toString("utf8", 0, bytesRead);
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      if (!line) continue;
+      let e: any;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (e && e.cwd) return e.cwd as string;
+    }
+  } finally {
+    await fh.close();
+  }
+  return "";
+}
+
+async function parseSessionTail(path: string, maxBytes: number): Promise<Session> {
+  let buf: string;
+  try {
+    buf = await readTail(path, maxBytes);
+  } catch (e: any) {
+    if (e?.code === "ENOENT") throw new Error(ERR_FILE_MISSING);
+    throw e;
+  }
+
+  const projectDir = dirname(path);
+  const sess: Session = {
+    id: basename(path).replace(/\.jsonl$/, ""),
+    jsonlPath: path,
+    projectDir,
+    cwd: "",
+    cwdBasename: "",
+    label: "",
+    lastTime: null,
+    lastEpoch: 0,
+    cwdExists: false,
+    cwdUnknown: false,
+  };
+
+  let hasUser = false;
+  let aiTitle = "";
+  let lastPrompt = "";
+  let lastUserText = "";
+  let earliestCWD = "";
+  let matchingCWD = "";
+  let lastTS: Date | null = null;
+
+  const projectsBase = basename(projectDir);
+
+  const lines = buf.split("\n");
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    let e: any;
+    try {
+      e = JSON.parse(line);
+    } catch {
+      continue;
+    }
+    if (e.cwd) {
+      earliestCWD = e.cwd;
+      if (matchingCWD === "" && encodeCWD(e.cwd) === projectsBase) {
+        matchingCWD = e.cwd;
+      }
+    }
+    switch (e.type) {
+      case "ai-title":
+        if (aiTitle === "" && e.aiTitle) aiTitle = e.aiTitle;
+        break;
+      case "last-prompt":
+        if (lastPrompt === "" && e.lastPrompt) lastPrompt = e.lastPrompt;
+        break;
+      case "user": {
+        hasUser = true;
+        if (lastUserText === "" && e.message) {
+          lastUserText = extractText(e.message.content, " ");
+        }
+        const t = parseTime(e.timestamp);
+        if (t && (!lastTS || t > lastTS)) lastTS = t;
+        break;
+      }
+      case "assistant": {
+        const t = parseTime(e.timestamp);
+        if (t && (!lastTS || t > lastTS)) lastTS = t;
+        break;
+      }
+    }
+  }
+
+  let cwd = matchingCWD;
+  if (cwd === "") {
+    const start = await readStartCWD(path).catch(() => "");
+    if (start) cwd = start;
+  }
+  if (cwd === "") {
+    const guess = restoreCWDFromDir(projectDir);
+    if (await pathIsDir(guess)) cwd = guess;
+  }
+  if (cwd === "") cwd = earliestCWD;
+
+  if (!hasUser) throw new Error(ERR_EMPTY);
+
+  const label = firstNonEmpty(aiTitle, lastPrompt, lastUserText);
+  if (label === "") throw new Error(ERR_EMPTY);
+  sess.label = sanitizeLabel(label);
+  if (sess.label === "") throw new Error(ERR_EMPTY);
+
+  sess.cwd = cwd;
+  if (cwd === "") {
+    sess.cwdUnknown = true;
+  } else {
+    sess.cwdBasename = basename(cwd);
+    sess.cwdExists = await pathIsDir(cwd);
+  }
+
+  if (!lastTS) {
+    try {
+      lastTS = (await stat(path)).mtime;
+    } catch {
+    }
+  }
+  sess.lastTime = lastTS;
+  sess.lastEpoch = lastTS ? Math.floor(lastTS.getTime() / 1000) : 0;
+  return sess;
+}
+
+async function mapConcurrent<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (true) {
+      const i = next++;
+      if (i >= items.length) break;
+      results[i] = await fn(items[i], i);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
+function sortEpoch(s: Session, nowEpoch: number): number {
+  if (s.lastEpoch > nowEpoch) return 0;
+  return s.lastEpoch;
+}
+
+async function scanPaths(paths: string[]): Promise<Session[]> {
+  if (paths.length === 0) return [];
+  const concurrency = Math.max((navigator?.hardwareConcurrency ?? 4) * 2, 4);
+  const parsed = await mapConcurrent(paths, concurrency, async (p) => {
+    try {
+      return await parseSessionTail(p, TAIL_READ_BYTES);
+    } catch {
+      return null;
+    }
+  });
+  const out = parsed.filter((s): s is Session => s !== null);
+  const nowEpoch = Math.floor(Date.now() / 1000);
+  out.sort((a, b) => {
+    const ka = sortEpoch(a, nowEpoch);
+    const kb = sortEpoch(b, nowEpoch);
+    if (ka !== kb) return kb - ka;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
+  return out;
+}
+
+async function scan(): Promise<Session[]> {
+  return scanPaths(await collectJSONLPaths(projectsDir()));
+}
+
+async function scanFiltered(allow: Set<string> | null): Promise<Session[]> {
+  const paths = await collectJSONLPaths(projectsDir());
+  if (allow === null) return scanPaths(paths);
+  return scanPaths(paths.filter((p) => allow.has(p)));
+}
+
+async function findByID(id: string): Promise<Session> {
+  const base = projectsDir();
+  let projDirs;
+  try {
+    projDirs = await readdir(base, { withFileTypes: true });
+  } catch (e: any) {
+    if (e?.code === "ENOENT") throw new Error(ERR_FILE_MISSING);
+    throw e;
+  }
+  const want = id + ".jsonl";
+  for (const pd of projDirs) {
+    if (!pd.isDirectory()) continue;
+    const candidate = join(base, pd.name, want);
+    try {
+      await stat(candidate);
+    } catch {
+      continue;
+    }
+    return parseSessionTail(candidate, TAIL_READ_BYTES * 4);
+  }
+  throw new Error(ERR_FILE_MISSING);
+}
+
+async function iterContent(path: string, fn: (text: string) => boolean): Promise<void> {
+  const stream = createReadStream(path, { encoding: "utf8" });
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const raw of rl) {
+      const line = raw.trim();
+      if (!line) continue;
+      let e: any;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      let text = "";
+      switch (e.type) {
+        case "user":
+        case "assistant":
+          if (!e.message) continue;
+          text = extractText(e.message.content, " ");
+          break;
+        case "ai-title":
+          text = e.aiTitle ?? "";
+          break;
+        case "last-prompt":
+          text = e.lastPrompt ?? "";
+          break;
+        default:
+          continue;
+      }
+      if (text === "") continue;
+      if (!fn(text)) return;
+    }
+  } finally {
+    rl.close();
+    stream.destroy();
+  }
+}
+
+interface GrepOptions {
+  regex: boolean;
+}
+
+function buildMatcher(query: string, opts: GrepOptions): (s: string) => boolean {
+  if (opts.regex) {
+    let re: RegExp;
+    try {
+      re = new RegExp(query, "i");
+    } catch (err) {
+      throw new Error(`invalid regex: ${(err as Error).message}`);
+    }
+    return (s) => re.test(s);
+  }
+  const needle = query.toLowerCase();
+  return (s) => s.toLowerCase().includes(needle);
+}
+
+async function grepFilter(query: string, opts: GrepOptions, candidate: string[] | null): Promise<Set<string> | null> {
+  if (query.trim() === "") return null;
+  if (candidate && candidate.length === 0) return new Set();
+  const rg = Bun.which("rg");
+  if (rg) return grepFilterRg(rg, query, opts, candidate);
+  return grepFilterInProcess(query, opts, candidate);
+}
+
+function grepFilterRg(rg: string, query: string, opts: GrepOptions, candidate: string[] | null): Set<string> {
+  const args = ["-l", "-i", "--no-messages"];
+  if (!opts.regex) args.push("-F");
+  args.push("-e", query);
+  if (candidate && candidate.length > 0 && candidate.length <= GREP_FILELIST_MAX) {
+    args.push(...candidate);
+  } else {
+    args.push("-g", "*.jsonl", "-g", "!agent-*.jsonl", projectsDir());
+  }
+  const r = spawnSync(rg, args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+  if (r.status === 2) {
+    const msg = (r.stderr || "").trim().split("\n")[0] || "ripgrep failed";
+    throw new Error(opts.regex ? `invalid regex: ${msg}` : msg);
+  }
+  const set = new Set<string>();
+  for (const line of (r.stdout || "").split("\n")) {
+    if (line) set.add(line);
+  }
+  return set;
+}
+
+async function grepFilterInProcess(query: string, opts: GrepOptions, candidate: string[] | null): Promise<Set<string>> {
+  const match = buildMatcher(query, opts);
+  const paths = candidate ?? await collectJSONLPaths(projectsDir());
+  if (paths.length === 0) return new Set();
+  const set = new Set<string>();
+  const concurrency = Math.max((navigator?.hardwareConcurrency ?? 4) * 2, 4);
+  await mapConcurrent(paths, concurrency, async (p) => {
+    let hit = false;
+    await iterContent(p, (text) => {
+      if (match(text)) {
+        hit = true;
+        return false;
+      }
+      return true;
+    }).catch(() => {});
+    if (hit) set.add(p);
+  });
+  return set;
+}
+
+interface ListOptions {
+  grep: string;
+  regex: boolean;
+  excludeDir: string;
+  excludeReviewer: boolean;
+  since: string;
+  color: string;
+  noColor: boolean;
+}
+
+function colorEnabled(opts: ListOptions): boolean {
+  switch (opts.color.toLowerCase()) {
+    case "always":
+      return true;
+    case "never":
+      return false;
+  }
+  if (opts.noColor) return false;
+  if (process.env.NO_COLOR) return false;
+  return Boolean(process.stdout.isTTY);
+}
+
+function padRight(s: string, n: number): string {
+  let out = s;
+  while (Array.from(out).length < n) out += " ";
+  return out;
+}
+
+function formatLine(s: Session, now: Date, color: boolean): string {
+  let rel = relative(s.lastTime, now);
+  let base = s.cwdBasename || "(unknown)";
+  let marker = "";
+  let healthy = true;
+  if (s.cwdUnknown) {
+    marker = "[cwd?] ";
+    healthy = false;
+  } else if (!s.cwdExists) {
+    marker = "[gone] ";
+    healthy = false;
+  }
+  if (color) {
+    rel = ANSI.Dim + padRight(rel, 9) + ANSI.Reset;
+    if (healthy) {
+      base = ANSI.Cyan + base + ANSI.Reset;
+    } else {
+      base = ANSI.Yellow + base + ANSI.Reset;
+      marker = ANSI.Yellow + marker + ANSI.Reset;
+    }
+  } else {
+    rel = padRight(rel, 9);
+  }
+  return `${s.id}\t${s.lastEpoch}\t${rel}\t${base}\t${marker}${s.label}`;
+}
+
+function filterOutByDir(sessions: Session[], needle: string): Session[] {
+  const lneedle = needle.toLowerCase();
+  return sessions.filter((s) => {
+    const target = s.cwd || s.cwdBasename;
+    return !(target && target.toLowerCase().includes(lneedle));
+  });
+}
+
+async function loadSessions(query: string, regex: boolean, cutoff: number | null): Promise<Session[]> {
+  const candidate = cutoff == null ? null : await filterByMtime(await collectJSONLPaths(projectsDir()), cutoff);
+  let sessions: Session[];
+  if (query === "") {
+    sessions = await scanPaths(candidate ?? await collectJSONLPaths(projectsDir()));
+  } else {
+    const allow = await grepFilter(query, { regex }, candidate);
+    if (allow === null) sessions = await scan();
+    else if (allow.size === 0) sessions = [];
+    else sessions = await scanFiltered(allow);
+  }
+  if (cutoff != null) sessions = sessions.filter((s) => s.lastEpoch >= cutoff);
+  return sessions;
+}
+
+async function listRun(opts: ListOptions): Promise<void> {
+  const cutoff = parseSince(opts.since);
+  let sessions = await loadSessions(opts.grep, opts.regex, cutoff);
+  const needle = opts.excludeDir.trim();
+  if (needle !== "") sessions = filterOutByDir(sessions, needle);
+  if (opts.excludeReviewer) sessions = await filterOutReviewers(sessions);
+  const color = colorEnabled(opts);
+  const now = new Date();
+  const lines = sessions.map((s) => formatLine(s, now, color));
+  if (lines.length) process.stdout.write(lines.join("\n") + "\n");
+}
+
+interface PreviewOptions {
+  query: string;
+  regex: boolean;
+}
+
+const MAX_MESSAGES = 30;
+const MAX_BODY_LEN = 200;
+
+interface MessageItem {
+  role: string;
+  timestamp: Date | null;
+  body: string;
+}
+
+function highlightMatches(s: string, opts: PreviewOptions): string {
+  if (opts.query.trim() === "") return s;
+  let pattern = opts.query;
+  if (!opts.regex) pattern = pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  let re: RegExp;
+  try {
+    re = new RegExp(pattern, "gi");
+  } catch {
+    return s;
+  }
+  let out = "";
+  let last = 0;
+  for (const m of s.matchAll(re)) {
+    const start = m.index!;
+    const end = start + m[0].length;
+    if (start === end) continue;
+    out += s.slice(last, start) + ANSI.Highlight + s.slice(start, end) + ANSI.Reset;
+    last = end;
+  }
+  out += s.slice(last);
+  return out;
+}
+
+function truncateBody(s: string): string {
+  s = s.replaceAll("\r", "");
+  const kept: string[] = [];
+  for (const raw of s.split("\n")) {
+    const l = raw.trim();
+    if (!l) continue;
+    kept.push(l);
+    if (kept.length >= 2) break;
+  }
+  return truncate(kept.join(" | "), MAX_BODY_LEN);
+}
+
+async function loadMessages(
+  path: string,
+): Promise<{ messages: MessageItem[]; startedAt: Date | null; total: number }> {
+  const stream = createReadStream(path, { encoding: "utf8" });
+  const rl = createInterface({ input: stream, crlfDelay: Infinity });
+  const ring: MessageItem[] = new Array(MAX_MESSAGES);
+  let startedAt: Date | null = null;
+  let total = 0;
+  try {
+    for await (const raw of rl) {
+      const line = raw.trim();
+      if (!line) continue;
+      let e: any;
+      try {
+        e = JSON.parse(line);
+      } catch {
+        continue;
+      }
+      if (e.type !== "user" && e.type !== "assistant") continue;
+      if (!e.message) continue;
+      const body = extractText(e.message.content, "\n");
+      if (body === "") continue;
+      const ts = parseTime(e.timestamp);
+      if (!startedAt && ts) startedAt = ts;
+      ring[total % MAX_MESSAGES] = { role: e.type, timestamp: ts, body };
+      total++;
+    }
+  } finally {
+    rl.close();
+    stream.destroy();
+  }
+  const n = Math.min(total, MAX_MESSAGES);
+  const out: MessageItem[] = [];
+  const start = total > MAX_MESSAGES ? total % MAX_MESSAGES : 0;
+  for (let i = 0; i < n; i++) out.push(ring[(start + i) % MAX_MESSAGES]);
+  return { messages: out, startedAt, total };
+}
+
+function writeMessage(parts: string[], m: MessageItem, opts: PreviewOptions): void {
+  let role = m.role;
+  let color = ANSI.Green;
+  if (role === "assistant") {
+    role = "asst";
+    color = ANSI.Cyan;
+  }
+  const stamp = m.timestamp ? formatHM(m.timestamp) : "--:--";
+  const body = highlightMatches(truncateBody(m.body), opts);
+  parts.push(`${color}[${role} ${stamp}]${ANSI.Reset} ${body}`);
+}
+
+async function previewRun(id: string, opts: PreviewOptions): Promise<void> {
+  let s: Session;
+  try {
+    s = await findByID(id);
+  } catch (e: any) {
+    if (e?.message === ERR_FILE_MISSING) throw new Error(`session not found: ${id}`);
+    if (e?.message === ERR_EMPTY) throw new Error(`session has no usable content: ${id}`);
+    throw e;
+  }
+
+  const { messages, startedAt: loadedStart, total } = await loadMessages(s.jsonlPath);
+  let startedAt = loadedStart;
+  if (!startedAt && s.lastTime) startedAt = s.lastTime;
+  const now = new Date();
+
+  const parts: string[] = [];
+  parts.push(`${ANSI.Bold}session${ANSI.Reset} : ${s.id}`);
+  let cwd = s.cwd || "(unknown)";
+  cwd = s.cwdExists ? ANSI.Cyan + cwd + ANSI.Reset : ANSI.Yellow + cwd + " [gone]" + ANSI.Reset;
+  parts.push(`${ANSI.Bold}project${ANSI.Reset} : ${cwd}`);
+  parts.push(
+    `${ANSI.Bold}started${ANSI.Reset} : ${startedAt ? formatDateTime(startedAt) : "?"}  ${ANSI.Dim}(${relativeOrFuture(startedAt, now)})${ANSI.Reset}`,
+  );
+  parts.push(
+    `${ANSI.Bold}last${ANSI.Reset}    : ${s.lastTime ? formatDateTime(s.lastTime) : "?"}  ${ANSI.Dim}(${total} msgs)${ANSI.Reset}`,
+  );
+  parts.push(ANSI.Dim + "─".repeat(60) + ANSI.Reset);
+
+  let tail = messages;
+  if (tail.length > MAX_MESSAGES) tail = tail.slice(tail.length - MAX_MESSAGES);
+  for (const m of tail) writeMessage(parts, m, opts);
+
+  process.stdout.write(parts.join("\n") + "\n");
+}
+
+async function resumeRun(id: string, claudeArgs: string[] = []): Promise<never> {
+  let s: Session;
+  try {
+    s = await findByID(id);
+  } catch (e: any) {
+    if (e?.message === ERR_FILE_MISSING) throw new Error(`session not found: ${id}`);
+    if (e?.message === ERR_EMPTY) throw new Error(`session has no usable content: ${id}`);
+    throw e;
+  }
+  if (s.cwdUnknown || s.cwd === "") {
+    throw new Error(
+      `cwd unknown for session ${id}; refusing to resume (the JSONL had no ` +
+        `cwd and the directory-name fallback could not be reconciled with the filesystem)`,
+    );
+  }
+  if (!s.cwdExists) throw new Error(`original cwd is gone: ${s.cwd}`);
+  const claudePath = Bun.which("claude");
+  if (!claudePath) throw new Error("claude not found in PATH");
+
+  try {
+    process.chdir(s.cwd);
+  } catch (e: any) {
+    throw new Error(`chdir to ${s.cwd}: ${e?.message ?? e}`);
+  }
+  const r = spawnSync(claudePath, ["--resume", id, ...claudeArgs], { stdio: "inherit" });
+  if (r.error) throw r.error;
+  process.exit(r.status ?? 0);
+}
+
+// Args destined for `claude` are read from the environment so they survive the
+// fzf bash subprocess re-invoking `ccsession resume`. Explicit args (from a
+// direct `ccsession resume <id> -- ...`) take precedence.
+function resolveClaudeArgs(explicit: string[]): string[] {
+  if (explicit.length > 0) return explicit;
+  const raw = process.env[CLAUDE_ARGS_ENV];
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+interface Keybindings {
+  grep: string;
+  dir: string;
+  fuzzy: string;
+}
+
+function defaultBinds(): Keybindings {
+  return { grep: "ctrl-g", dir: "ctrl-o", fuzzy: "ctrl-f" };
+}
+
+const KEY_NAME = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const RESERVED = new Set(["start", "change", "enter", "load", "result", "focus"]);
+
+function validateBinds(kb: Keybindings): void {
+  for (const [label, key] of [
+    ["grep", kb.grep],
+    ["dir", kb.dir],
+    ["fuzzy", kb.fuzzy],
+  ] as const) {
+    if (!KEY_NAME.test(key)) {
+      throw new Error(`invalid ${label} keybinding "${key}": must match ${KEY_NAME.source}`);
+    }
+    if (RESERVED.has(key)) {
+      throw new Error(`${label} keybinding "${key}" is a reserved fzf event name`);
+    }
+  }
+  if (kb.grep === kb.dir) throw new Error(`grep and dir keybindings collide on "${kb.grep}"`);
+  if (kb.grep === kb.fuzzy) throw new Error(`grep and fuzzy keybindings collide on "${kb.grep}"`);
+  if (kb.dir === kb.fuzzy) throw new Error(`dir and fuzzy keybindings collide on "${kb.dir}"`);
+}
+
+function pick(...candidates: string[]): string {
+  for (const c of candidates) if (c) return c;
+  return "";
+}
+
+function resolveBinds(flags: Partial<Keybindings>, env: Partial<Keybindings>, file: Partial<Keybindings> | null): Keybindings {
+  const f = file ?? {};
+  const def = defaultBinds();
+  const kb: Keybindings = {
+    grep: pick(flags.grep ?? "", env.grep ?? "", f.grep ?? "", def.grep),
+    dir: pick(flags.dir ?? "", env.dir ?? "", f.dir ?? "", def.dir),
+    fuzzy: pick(flags.fuzzy ?? "", env.fuzzy ?? "", f.fuzzy ?? "", def.fuzzy),
+  };
+  validateBinds(kb);
+  return kb;
+}
+
+async function loadConfigFile(): Promise<Partial<Keybindings> | null> {
+  const base = process.env.XDG_CONFIG_HOME;
+  const path = base
+    ? join(base, "ccsession", "config.toml")
+    : join(homedir(), ".config", "ccsession", "config.toml");
+  let data: string;
+  try {
+    data = await readFile(path, "utf8");
+  } catch (e: any) {
+    if (e?.code === "ENOENT") return null;
+    throw e;
+  }
+  return parseKeybindingsToml(data, path);
+}
+
+function parseKeybindingsToml(data: string, path: string): Partial<Keybindings> {
+  const out: Partial<Keybindings> = {};
+  let inSection = false;
+  for (let raw of data.split("\n")) {
+    let line = raw.trim();
+    const hash = line.indexOf("#");
+    if (hash >= 0) line = line.slice(0, hash).trim();
+    if (!line) continue;
+    const sec = line.match(/^\[(.+)\]$/);
+    if (sec) {
+      inSection = sec[1].trim() === "keybindings";
+      continue;
+    }
+    if (!inSection) continue;
+    const kv = line.match(/^([A-Za-z0-9_]+)\s*=\s*(.+)$/);
+    if (!kv) throw new Error(`parsing ${path}: malformed line: ${raw}`);
+    const key = kv[1];
+    let val = kv[2].trim();
+    const q = val.match(/^"(.*)"$|^'(.*)'$/);
+    if (q) val = q[1] ?? q[2] ?? "";
+    if (key === "grep" || key === "dir" || key === "fuzzy") out[key] = val;
+  }
+  return out;
+}
+
+const DEFAULT_SCRIPT_TMPL = `set -u
+exclude_args=()
+exclude_arg=""
+if [ -n "\${CCSESSION_EXCLUDE_DIR:-}" ]; then
+  exclude_args=(--exclude-dir "$CCSESSION_EXCLUDE_DIR")
+  exclude_arg=$(printf -- '--exclude-dir %q' "$CCSESSION_EXCLUDE_DIR")
+fi
+id=$("$CCSESSION_BIN" list --color=always "\${exclude_args[@]+"\${exclude_args[@]}"}" | fzf \\
+  --ansi \\
+  --delimiter=$'\\t' \\
+  --with-nth=3,4,5 \\
+  --nth=1,2,3 \\
+  --no-sort \\
+  --no-hscroll \\
+  --color='hl:-1:reverse,hl+:-1:reverse' \\
+  --preview "$CCSESSION_BIN preview --query {q} {1}" \\
+  --preview-window=right,60%,wrap \\
+  --header='__CCS_BIND_GREP__: grep / __CCS_BIND_DIR__: dir / __CCS_BIND_FUZZY__: fuzzy / enter: resume' \\
+  --bind 'start:unbind(change)' \\
+  --bind "change:reload(sleep 0.05; $CCSESSION_BIN list --color=always $exclude_arg --grep {q})" \\
+  --bind "__CCS_BIND_GREP__:transform:echo \\"change-prompt(grep> )+disable-search+reload(sleep 0.05; $CCSESSION_BIN list --color=always $exclude_arg --grep {q})+rebind(change)\\"" \\
+  --bind "__CCS_BIND_DIR__:transform:echo \\"change-prompt(dir> )+enable-search+change-nth(2)+reload($CCSESSION_BIN list --color=always $exclude_arg)+unbind(change)\\"" \\
+  --bind "__CCS_BIND_FUZZY__:transform:echo \\"change-prompt(> )+enable-search+change-nth(1,2,3)+reload($CCSESSION_BIN list --color=always $exclude_arg)+unbind(change)\\"" \\
+  | awk -F'\\t' '{print $1}') || true
+if [ -n "$id" ]; then
+  exec "$CCSESSION_BIN" resume "$id"
+fi
+`;
+
+function buildScript(kb: Keybindings): string {
+  return DEFAULT_SCRIPT_TMPL.replaceAll("__CCS_BIND_GREP__", kb.grep)
+    .replaceAll("__CCS_BIND_DIR__", kb.dir)
+    .replaceAll("__CCS_BIND_FUZZY__", kb.fuzzy);
+}
+
+async function runDefault(flagBinds: Partial<Keybindings>): Promise<void> {
+  if (!Bun.which("fzf")) throw new Error("fzf is required but not found in PATH");
+  const self = process.execPath === process.argv[1] ? process.argv[1] : Bun.main;
+  const file = await loadConfigFile();
+  const env: Partial<Keybindings> = {
+    grep: process.env[BIND_GREP_ENV] ?? "",
+    dir: process.env[BIND_DIR_ENV] ?? "",
+    fuzzy: process.env[BIND_FUZZY_ENV] ?? "",
+  };
+  const kb = resolveBinds(flagBinds, env, file);
+  const r = spawnSync("bash", ["-c", buildScript(kb)], {
+    stdio: "inherit",
+    env: { ...process.env, CCSESSION_BIN: self },
+  });
+  if (r.error) throw r.error;
+  process.exit(r.status ?? 0);
+}
+
+const USAGE = `ccsession - fzf frontend for "claude --resume"
+
+USAGE:
+  ccsession [--exclude-dir <s>] [--exclude-reviewer]   # list -> fzf -> resume
+  ccsession list [--grep Q] [--exclude-dir S]           # TSV rows for fzf
+  ccsession preview <sessionId>   # preview pane content
+  ccsession resume  <sessionId>   # chdir to original cwd, exec claude --resume
+  ccsession --help | --version
+
+  Anything after a trailing -- is forwarded verbatim to claude, e.g.
+      ccsession --since 14d -- --model opus
+      ccsession resume <sessionId> -- --model opus
+
+GLOBAL FLAGS:
+  --exclude-dir <s>     hide sessions whose cwd contains <s> (case-insensitive)
+  --exclude-reviewer    hide auto-reviewer (RAI) sessions
+  --since <when>        only sessions active since <when>: 14d, 24h, 30m, 2026-06-01
+  --bind-grep <key>     key that switches the picker to grep mode (default ctrl-g)
+  --bind-dir  <key>     key that switches the picker to dir  mode (default ctrl-o)
+  --bind-fuzzy <key>    key that switches the picker to fuzzy mode (default ctrl-f)
+
+PICKER KEYBINDINGS:
+  Resolved as flag > env > config file > default. Override via the flags
+  above, the env vars CCSESSION_BIND_GREP / CCSESSION_BIND_DIR /
+  CCSESSION_BIND_FUZZY, or ~/.config/ccsession/config.toml:
+
+      [keybindings]
+      grep  = "ctrl-r"
+      dir   = "ctrl-o"
+      fuzzy = "alt-f"
+
+LIST FLAGS:
+  --grep <query>      filter sessions by transcript content (ripgrep)
+  --regex             treat --grep query as a regular expression
+  --exclude-dir <s>   hide sessions whose cwd contains <s> (case-insensitive)
+  --exclude-reviewer  hide auto-reviewer (RAI) sessions
+  --since <when>      only sessions active since <when>: 14d, 24h, 30m, 2026-06-01
+  --color <mode>      color output: auto (default) | always | never
+  --no-color          shorthand for --color=never
+
+REVIEWER DETECTION:
+  --exclude-reviewer drops sessions whose head contains any RAI signature
+  (${REVIEWER_DEFAULT_SIGNATURES.join(", ")}). Override with a
+  comma-separated CCSESSION_REVIEWER_SIGNATURE list.
+
+REQUIRES: fzf, claude. Uses rg for --grep when available.
+`;
+
+interface GlobalFlags {
+  excludeDir: string;
+  excludeReviewer: boolean;
+  since: string;
+  binds: Partial<Keybindings>;
+}
+
+function parseGlobalFlags(args: string[]): { gf: GlobalFlags; rest: string[] } {
+  const gf: GlobalFlags = { excludeDir: "", excludeReviewer: false, since: "", binds: {} };
+  const valued: Record<string, (v: string) => void> = {
+    "--exclude-dir": (v) => (gf.excludeDir = v),
+    "--since": (v) => (gf.since = v),
+    "--bind-grep": (v) => (gf.binds.grep = v),
+    "--bind-dir": (v) => (gf.binds.dir = v),
+    "--bind-fuzzy": (v) => (gf.binds.fuzzy = v),
+  };
+  let i = 0;
+  outer: while (i < args.length) {
+    const a = args[i];
+    if (a === "--exclude-reviewer") {
+      gf.excludeReviewer = true;
+      i += 1;
+      continue;
+    }
+    for (const name of Object.keys(valued)) {
+      if (a === name) {
+        if (i + 1 >= args.length) {
+          process.stderr.write(`ccsession: ${name} requires a value\n`);
+          process.exit(2);
+        }
+        valued[name](args[i + 1]);
+        i += 2;
+        continue outer;
+      }
+      if (a.startsWith(name + "=")) {
+        valued[name](a.slice(name.length + 1));
+        i += 1;
+        continue outer;
+      }
+    }
+    return { gf, rest: args.slice(i) };
+  }
+  return { gf, rest: [] };
+}
+
+function extractFlags(
+  args: string[],
+  spec: Record<string, "string" | "bool">,
+): { values: Record<string, string | boolean>; rest: string[] } {
+  const values: Record<string, string | boolean> = {};
+  const rest: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    let matched = false;
+    for (const [name, kind] of Object.entries(spec)) {
+      const flag = "--" + name;
+      if (a === flag) {
+        if (kind === "bool") {
+          values[name] = true;
+        } else {
+          values[name] = args[++i] ?? "";
+        }
+        matched = true;
+        break;
+      }
+      if (a.startsWith(flag + "=")) {
+        const v = a.slice(flag.length + 1);
+        values[name] = kind === "bool" ? v !== "false" : v;
+        matched = true;
+        break;
+      }
+    }
+    if (!matched) rest.push(a);
+  }
+  return { values, rest };
+}
+
+function die(msg: string, code = 1): never {
+  process.stderr.write(msg + "\n");
+  process.exit(code);
+}
+
+async function main(): Promise<void> {
+  // Everything after the first `--` is forwarded verbatim to `claude`.
+  const argv = process.argv.slice(2);
+  const dashdash = argv.indexOf("--");
+  const ownArgv = dashdash >= 0 ? argv.slice(0, dashdash) : argv;
+  const claudeArgs = dashdash >= 0 ? argv.slice(dashdash + 1) : [];
+  if (claudeArgs.length > 0) process.env[CLAUDE_ARGS_ENV] = JSON.stringify(claudeArgs);
+
+  const { gf, rest: args } = parseGlobalFlags(ownArgv);
+  if (gf.excludeDir) process.env[EXCLUDE_DIR_ENV] = gf.excludeDir;
+  if (gf.excludeReviewer) process.env[EXCLUDE_REVIEWER_ENV] = "1";
+  if (gf.since) process.env[SINCE_ENV] = gf.since;
+
+  if (args.length === 0) {
+    await runDefault(gf.binds);
+    return;
+  }
+
+  const cmd = args[0];
+  const sub = args.slice(1);
+  switch (cmd) {
+    case "list": {
+      const { values } = extractFlags(sub, {
+        grep: "string",
+        regex: "bool",
+        "exclude-dir": "string",
+        "exclude-reviewer": "bool",
+        since: "string",
+        color: "string",
+        "no-color": "bool",
+      });
+      await listRun({
+        grep: (values.grep as string) ?? "",
+        regex: Boolean(values.regex),
+        excludeDir: (values["exclude-dir"] as string) ?? process.env[EXCLUDE_DIR_ENV] ?? "",
+        excludeReviewer: Boolean(values["exclude-reviewer"]) || process.env[EXCLUDE_REVIEWER_ENV] === "1",
+        since: (values.since as string) ?? process.env[SINCE_ENV] ?? "",
+        color: (values.color as string) ?? "auto",
+        noColor: Boolean(values["no-color"]),
+      }).catch((e) => die("ccsession list: " + e.message));
+      break;
+    }
+    case "preview": {
+      const { values, rest } = extractFlags(sub, { query: "string", regex: "bool" });
+      if (rest.length < 1) die("ccsession preview: session id required", 2);
+      await previewRun(rest[0], {
+        query: (values.query as string) ?? "",
+        regex: Boolean(values.regex),
+      }).catch((e) => die("ccsession preview: " + e.message));
+      break;
+    }
+    case "resume": {
+      const { rest } = extractFlags(sub, {});
+      if (rest.length < 1) die("ccsession resume: session id required", 2);
+      await resumeRun(rest[0], resolveClaudeArgs(claudeArgs)).catch((e) => die("ccsession resume: " + e.message));
+      break;
+    }
+    case "-h":
+    case "--help":
+    case "help":
+      process.stdout.write(USAGE);
+      break;
+    case "-v":
+    case "--version":
+    case "version":
+      process.stdout.write(`ccsession ${VERSION}\n`);
+      break;
+    default:
+      process.stderr.write(`ccsession: unknown subcommand: ${cmd}\n`);
+      process.stdout.write(USAGE);
+      process.exit(2);
+  }
+}
+
+main().catch((e) => die("ccsession: " + (e?.message ?? e)));
