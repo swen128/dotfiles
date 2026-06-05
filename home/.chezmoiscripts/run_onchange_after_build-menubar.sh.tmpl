@@ -1,0 +1,15 @@
+#!/bin/bash
+set -euo pipefail
+
+dir="{{ .chezmoi.homeDir }}/.local/share/menubar"
+bin="$dir/menubar"
+plist="{{ .chezmoi.homeDir }}/Library/LaunchAgents/com.yuto.menubar.plist"
+label="com.yuto.menubar"
+
+: sources_sha256 {{ list (include "dot_local/share/menubar/main.swift") (include "dot_local/share/menubar/controller.swift") (include "dot_local/share/menubar/claude-usage.swift") (include "dot_local/share/menubar/github-prs.swift") | join "" | sha256sum }}
+
+swiftc -O "$dir"/*.swift -o "$bin"
+
+launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
+launchctl bootstrap "gui/$(id -u)" "$plist"
+launchctl kickstart -k "gui/$(id -u)/$label"
