@@ -10,6 +10,16 @@ label="com.yuto.menubar"
 
 swiftc -O "$dir"/*.swift -o "$bin"
 
-launchctl bootout "gui/$(id -u)/$label" 2>/dev/null || true
-launchctl bootstrap "gui/$(id -u)" "$plist"
-launchctl kickstart -k "gui/$(id -u)/$label"
+domain="gui/$(id -u)"
+
+# bootout is asynchronous: it returns before the service is fully torn down.
+# Bootstrapping while the old service is still unloading fails with
+# "5: Input/output error", so wait for the service to actually disappear.
+launchctl bootout "$domain/$label" 2>/dev/null || true
+for _ in $(seq 1 50); do
+	launchctl print "$domain/$label" >/dev/null 2>&1 || break
+	sleep 0.1
+done
+
+launchctl bootstrap "$domain" "$plist"
+launchctl kickstart -k "$domain/$label"
