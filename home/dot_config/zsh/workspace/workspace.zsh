@@ -271,8 +271,15 @@ function _ws_done() {
     return 1
   }
 
-  # Safe delete branch
-  if (cd "$current_root" && git branch -d "$current_branch" 2>/dev/null); then
+  # Safe delete branch, except protected branches (default branch, release/*)
+  local default_branch
+  default_branch=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
+  default_branch=${default_branch#origin/}
+  default_branch=${default_branch:-${_ws_wt_branches[1]}}
+
+  if [[ "$current_branch" == "$default_branch" || "$current_branch" == release/* ]]; then
+    echo "[ws done] Kept branch '$current_branch' (protected branch)"
+  elif (cd "$current_root" && git branch -d "$current_branch" 2>/dev/null); then
     echo "[ws done] Deleted branch '$current_branch' (was fully merged)"
   else
     echo "[ws done] Kept branch '$current_branch' (not fully merged)"
