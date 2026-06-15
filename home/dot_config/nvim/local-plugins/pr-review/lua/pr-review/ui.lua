@@ -66,6 +66,99 @@ function M.compose(opts)
   end
 end
 
+-- Used instead of vim.ui.select so we never fall back to Neovim's built-in
+-- "type a number and <Enter>" inputlist prompt.
+function M.select(items, opts, on_choice)
+  opts = opts or {}
+  local format_item = opts.format_item or tostring
+
+  local used, keys = {}, {}
+  for i, item in ipairs(items) do
+    local label = format_item(item)
+    local key = opts.keys and opts.keys[i]
+    if not key then
+      for c in label:gmatch("%a") do
+        local lc = c:lower()
+        if not used[lc] then
+          key = lc
+          break
+        end
+      end
+    end
+    if not key or used[key] then
+      key = tostring(i)
+    end
+    used[key] = true
+    keys[i] = key
+  end
+
+  local footer_lines = opts.header or {}
+
+  local lines = {}
+  for i, item in ipairs(items) do
+    lines[#lines + 1] = ("  %s  %s"):format(keys[i], format_item(item))
+  end
+  if #footer_lines > 0 then
+    lines[#lines + 1] = ""
+    for _, h in ipairs(footer_lines) do
+      lines[#lines + 1] = h
+    end
+  end
+
+  local buf = new_scratch()
+  vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+  vim.bo[buf].modifiable = false
+
+  local width = 0
+  for _, l in ipairs(lines) do
+    width = math.max(width, vim.fn.strdisplaywidth(l))
+  end
+  local geo = centered_geometry(math.max(width + 2, opts.prompt and #opts.prompt + 4 or 0), #lines)
+  if opts.prompt then
+    geo.title = " " .. opts.prompt .. " "
+  end
+  geo.footer = " hotkey or j/k + <CR> · q cancel "
+  local win = vim.api.nvim_open_win(buf, true, geo)
+  vim.wo[win].cursorline = true
+
+  local done = false
+  local function finish(item)
+    if done then
+      return
+    end
+    done = true
+    if vim.api.nvim_win_is_valid(win) then
+      vim.api.nvim_win_close(win, true)
+    end
+    on_choice(item)
+  end
+
+  for i, item in ipairs(items) do
+    vim.keymap.set("n", keys[i], function()
+      finish(item)
+    end, { buffer = buf, nowait = true })
+  end
+  vim.keymap.set("n", "<CR>", function()
+    local item = items[vim.api.nvim_win_get_cursor(win)[1]]
+    if item then
+      finish(item)
+    end
+  end, { buffer = buf })
+  vim.keymap.set("n", "q", function()
+    finish(nil)
+  end, { buffer = buf })
+  vim.keymap.set("n", "<Esc>", function()
+    finish(nil)
+  end, { buffer = buf })
+  vim.api.nvim_create_autocmd("BufLeave", {
+    buffer = buf,
+    once = true,
+    callback = function()
+      finish(nil)
+    end,
+  })
+end
+
 function M.float(lines, opts)
   opts = opts or {}
   local buf = new_scratch()

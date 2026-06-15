@@ -163,6 +163,9 @@ function M.start(pr)
           for _, cb in ipairs(queued) do
             cb()
           end
+          M.load_pending_review(function()
+            require("pr-review.comments").decorate_all()
+          end)
           require("pr-review.comments").refresh()
         end)
       end)
@@ -327,6 +330,131 @@ function M.base_content(file)
   return lines or {}
 end
 
+-- Pending review comments are NOT exposed with line/side via REST (the
+-- reviews/{id}/comments endpoint only returns the legacy position/diff_hunk
+-- shape), so read them through review threads in GraphQL, which carry line,
+-- diffSide and the comment databaseId needed to edit/delete them later.
+local PENDING_THREADS_QUERY = [[
+query($id:ID!) {
+  node(id:$id) {
+    ... on PullRequest {
+      reviewThreads(first:100) {
+        nodes {
+          line originalLine startLine originalStartLine diffSide path
+          comments(first:1) {
+            nodes { databaseId body pullRequestReview { id state } }
+          }
+        }
+      }
+    }
+  }
+}]]
+
+function M.load_pending_review(cb)
+  local st = M.state
+  gh.gql(PENDING_THREADS_QUERY, { id = st.pr.id }, function(ok, data)
+    st.pending = {}
+    st.pending_review_id = nil
+    local threads = ok and data and data.node and data.node.reviewThreads and data.node.reviewThreads.nodes
+    for _, t in ipairs(threads or {}) do
+      local c = t.comments and t.comments.nodes and t.comments.nodes[1]
+      local review = c and c.pullRequestReview
+      local line = t.line or t.originalLine
+      if review and review.state == "PENDING" and t.path and line then
+        st.pending_review_id = review.id
+        local d = {
+          id = c.databaseId,
+          body = c.body,
+          path = t.path,
+          line = line,
+          side = t.diffSide == "LEFT" and "LEFT" or "RIGHT",
+        }
+        local start = t.startLine or t.originalStartLine
+        if start and start ~= line then
+          d.start_line = start
+          d.start_side = d.side
+        end
+        table.insert(st.pending, d)
+      end
+    end
+    if cb then
+      cb()
+    end
+  end)
+end
+
+function M.ensure_pending_review(cb)
+  local st = M.state
+  if st.pending_review_id then
+    cb(st.pending_review_id)
+    return
+  end
+  M.load_pending_review(function()
+    if st.pending_review_id then
+      cb(st.pending_review_id)
+      return
+    end
+    local mutation = [[
+mutation($pr:ID!) {
+  addPullRequestReview(input:{pullRequestId:$pr}) { pullRequestReview { id } }
+}]]
+    gh.gql(mutation, { pr = st.pr.id }, function(ok, data)
+      if ok and data and data.addPullRequestReview then
+        st.pending_review_id = data.addPullRequestReview.pullRequestReview.id
+        cb(st.pending_review_id)
+        return
+      end
+      -- A pending review already exists server-side but our lookup missed it;
+      -- re-read and reuse it rather than failing.
+      M.load_pending_review(function()
+        if st.pending_review_id then
+          cb(st.pending_review_id)
+        else
+          notify("failed to start review: " .. tostring(data), vim.log.levels.ERROR)
+          cb(nil)
+        end
+      end)
+    end)
+  end)
+end
+
+function M.add_review_comment(descriptor, cb)
+  local st = M.state
+  M.ensure_pending_review(function(rid)
+    if not rid then
+      cb(false)
+      return
+    end
+    local mutation = [[
+mutation($rid:ID!, $path:String!, $line:Int!, $side:DiffSide!, $body:String!, $startLine:Int, $startSide:DiffSide) {
+  addPullRequestReviewThread(input:{
+    pullRequestReviewId:$rid, path:$path, line:$line, side:$side, body:$body,
+    startLine:$startLine, startSide:$startSide
+  }) { thread { comments(first:1) { nodes { databaseId } } } }
+}]]
+    gh.gql(mutation, {
+      rid = rid,
+      path = descriptor.path,
+      line = descriptor.line,
+      side = descriptor.side,
+      body = descriptor.body,
+      startLine = descriptor.start_line,
+      startSide = descriptor.start_side,
+    }, function(ok, data)
+      if not ok then
+        notify("failed to add comment: " .. tostring(data), vim.log.levels.ERROR)
+        cb(false)
+        return
+      end
+      local nodes = data and data.addPullRequestReviewThread and data.addPullRequestReviewThread.thread.comments.nodes
+      descriptor.id = nodes and nodes[1] and nodes[1].databaseId
+      st.pending = st.pending or {}
+      table.insert(st.pending, descriptor)
+      cb(true)
+    end)
+  end)
+end
+
 function M.submit()
   local st = M.state
   if not st then
@@ -334,13 +462,22 @@ function M.submit()
     return
   end
   local pending = st.pending or {}
+  local header = {}
+  for _, d in ipairs(pending) do
+    local first = vim.split(d.body or "", "\r?\n")[1] or ""
+    if #first > 60 then
+      first = first:sub(1, 60) .. "…"
+    end
+    header[#header + 1] = ("  %s:%s  %s"):format(d.path, d.start_line and (d.start_line .. "-" .. d.line) or d.line, first)
+  end
   local labels = { APPROVE = "Approve", REQUEST_CHANGES = "Request changes", COMMENT = "Comment" }
-  vim.ui.select({ "APPROVE", "REQUEST_CHANGES", "COMMENT" }, {
+  require("pr-review.ui").select({ "APPROVE", "REQUEST_CHANGES", "COMMENT" }, {
     prompt = ("Submit review for #%d (%d pending comment%s) as"):format(
       st.pr.number,
       #pending,
       #pending == 1 and "" or "s"
     ),
+    header = header,
     format_item = function(ev)
       return labels[ev]
     end,
@@ -350,25 +487,39 @@ function M.submit()
     end
     require("pr-review.ui").compose({
       title = labels[ev] .. " — summary" .. (ev == "COMMENT" and "" or " (optional)"),
-      allow_empty = ev ~= "COMMENT",
+      allow_empty = true,
       footer = "<C-s> submit",
       on_submit = function(text)
-        local body = { event = ev, commit_id = st.pr.headRefOid }
-        if text ~= "" then
-          body.body = text
-        end
-        if #pending > 0 then
-          body.comments = pending
-        end
-        gh.api(("repos/{owner}/{repo}/pulls/%d/reviews"):format(st.pr.number), { method = "POST", body = body }, function(ok, res)
-          if not ok then
-            notify(tostring(res), vim.log.levels.ERROR)
+        local function finalize(rid)
+          if not rid then
             return
           end
-          st.pending = {}
-          notify(("review submitted: %s (%d comment%s)"):format(labels[ev], #pending, #pending == 1 and "" or "s"))
-          require("pr-review.comments").refresh()
-        end)
+          local mutation = [[
+mutation($rid:ID!, $event:PullRequestReviewEvent!, $body:String) {
+  submitPullRequestReview(input:{pullRequestReviewId:$rid, event:$event, body:$body}) {
+    pullRequestReview { state }
+  }
+}]]
+          gh.gql(mutation, { rid = rid, event = ev, body = text ~= "" and text or nil }, function(ok, data)
+            if not ok then
+              notify(tostring(data), vim.log.levels.ERROR)
+              return
+            end
+            local n = #pending
+            st.pending = {}
+            st.pending_review_id = nil
+            notify(("review submitted: %s (%d comment%s)"):format(labels[ev], n, n == 1 and "" or "s"))
+            require("pr-review.comments").refresh()
+          end)
+        end
+
+        if st.pending_review_id then
+          finalize(st.pending_review_id)
+        elseif #pending > 0 or ev ~= "COMMENT" then
+          M.ensure_pending_review(finalize)
+        else
+          notify("nothing to submit (no summary and no comments)", vim.log.levels.WARN)
+        end
       end,
     })
   end)
@@ -376,14 +527,42 @@ end
 
 function M.discard_pending()
   local st = M.state
-  if not st or not st.pending or #st.pending == 0 then
-    notify("no pending comments")
+  if not st then
+    notify("no active review session")
     return
   end
-  local n = #st.pending
-  st.pending = {}
-  require("pr-review.comments").decorate_all()
-  notify(("discarded %d pending comment%s"):format(n, n == 1 and "" or "s"))
+  local function done(n)
+    st.pending = {}
+    st.pending_review_id = nil
+    require("pr-review.comments").decorate_all()
+    notify(("discarded %d pending comment%s"):format(n, n == 1 and "" or "s"))
+  end
+  local function delete(rid, n)
+    local mutation = [[
+mutation($rid:ID!) {
+  deletePullRequestReview(input:{pullRequestReviewId:$rid}) { pullRequestReview { id } }
+}]]
+    gh.gql(mutation, { rid = rid }, function(ok, data)
+      if not ok then
+        notify(tostring(data), vim.log.levels.ERROR)
+        return
+      end
+      done(n)
+    end)
+  end
+
+  if st.pending_review_id then
+    delete(st.pending_review_id, #(st.pending or {}))
+    return
+  end
+  M.load_pending_review(function()
+    local n = #(st.pending or {})
+    if st.pending_review_id then
+      delete(st.pending_review_id, n)
+    else
+      notify("no pending comments")
+    end
+  end)
 end
 
 function M.merge()
@@ -392,13 +571,13 @@ function M.merge()
     notify("no active review session — run :Pr open", vim.log.levels.WARN)
     return
   end
-  vim.ui.select({ "squash", "merge", "rebase" }, {
+  require("pr-review.ui").select({ "squash", "merge", "rebase" }, {
     prompt = ("Merge #%d via"):format(st.pr.number),
   }, function(method)
     if not method then
       return
     end
-    vim.ui.select({ "Yes", "Yes, and delete branch", "No" }, {
+    require("pr-review.ui").select({ "Yes", "Yes, and delete branch", "No" }, {
       prompt = ("%s-merge #%d?"):format(method, st.pr.number),
     }, function(choice)
       if not choice or choice == "No" then
@@ -426,7 +605,7 @@ function M.automerge()
     notify("no active review session — run :Pr open", vim.log.levels.WARN)
     return
   end
-  vim.ui.select({ "Enable (squash)", "Enable (merge)", "Enable (rebase)", "Disable" }, {
+  require("pr-review.ui").select({ "Enable (squash)", "Enable (merge)", "Enable (rebase)", "Disable" }, {
     prompt = ("Auto-merge for #%d"):format(st.pr.number),
   }, function(choice)
     if not choice then

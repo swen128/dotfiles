@@ -228,7 +228,7 @@ function M.edit(comment, thread)
 end
 
 function M.react(comment, thread)
-  vim.ui.select(REACTIONS, {
+  require("pr-review.ui").select(REACTIONS, {
     prompt = "Toggle reaction",
     format_item = function(c)
       return EMOJI[c] .. "  " .. c
@@ -325,13 +325,83 @@ function M.show_thread(thread)
   end, { buffer = buf })
 end
 
+function M.pending_at_cursor()
+  local row = vim.fn.line(".")
+  for _, d in ipairs(M.pending_for_buf(0)) do
+    if row >= (d.start_line or d.line) and row <= d.line then
+      return d
+    end
+  end
+end
+
+function M.edit_pending(d)
+  if not d.id then
+    notify("can't edit this pending comment (no id) — reopen the PR", vim.log.levels.WARN)
+    return
+  end
+  ui.compose({
+    title = "Edit pending comment",
+    initial = d.body,
+    on_submit = function(text)
+      gh.api(
+        ("repos/{owner}/{repo}/pulls/comments/%d"):format(d.id),
+        { method = "PATCH", body = { body = text } },
+        function(ok, res)
+          if not ok then
+            notify(tostring(res), vim.log.levels.ERROR)
+            return
+          end
+          require("pr-review.pr").load_pending_review(function()
+            M.decorate_all()
+          end)
+        end
+      )
+    end,
+  })
+end
+
+function M.delete_pending(d)
+  if not d.id then
+    notify("can't delete this pending comment (no id) — reopen the PR", vim.log.levels.WARN)
+    return
+  end
+  gh.api(("repos/{owner}/{repo}/pulls/comments/%d"):format(d.id), { method = "DELETE" }, function(ok, res)
+    if not ok then
+      notify(tostring(res), vim.log.levels.ERROR)
+      return
+    end
+    notify("pending comment deleted")
+    require("pr-review.pr").load_pending_review(function()
+      M.decorate_all()
+    end)
+  end)
+end
+
+function M.pending_actions(d)
+  require("pr-review.ui").select({ "edit", "delete" }, {
+    prompt = "Pending comment",
+    header = vim.split(d.body or "", "\r?\n"),
+  }, function(action)
+    if action == "edit" then
+      M.edit_pending(d)
+    elseif action == "delete" then
+      M.delete_pending(d)
+    end
+  end)
+end
+
 function M.show_thread_at_cursor()
   local t = M.thread_at_cursor()
   if t then
     M.show_thread(t)
-  else
-    notify("no comment thread on this line")
+    return
   end
+  local d = M.pending_at_cursor()
+  if d then
+    M.pending_actions(d)
+    return
+  end
+  notify("no comment thread on this line")
 end
 
 function M.pick_thread()
@@ -418,10 +488,13 @@ function M.add_comment(l1, l2)
     title = ("Comment on %s:%s"):format(path, range),
     footer = "<C-s> add to review · <C-a> comment now",
     on_submit = function(text)
-      state.pending = state.pending or {}
-      table.insert(state.pending, descriptor(text))
-      notify(("added to review (%d pending) — submit with :Pr submit"):format(#state.pending))
-      M.decorate_all()
+      require("pr-review.pr").add_review_comment(descriptor(text), function(ok)
+        if not ok then
+          return
+        end
+        notify(("added to review (%d pending) — submit with :Pr submit"):format(#state.pending))
+        M.decorate_all()
+      end)
     end,
     on_submit_alt = function(text)
       local body = descriptor(text)

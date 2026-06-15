@@ -49,6 +49,21 @@ function M.graphql(query, variables, cb)
   M.run(args, {}, cb)
 end
 
+function M.gql(query, variables, cb)
+  local stdin = vim.json.encode({ query = query, variables = variables or vim.empty_dict() })
+  M.run({ "api", "graphql", "--input", "-" }, { stdin = stdin }, function(ok, res)
+    if not ok then
+      cb(false, res)
+      return
+    end
+    if type(res) == "table" and res.errors and res.errors[1] then
+      cb(false, res.errors[1].message or "graphql error")
+      return
+    end
+    cb(true, type(res) == "table" and res.data or res)
+  end)
+end
+
 function M.flatten(pages)
   local out = {}
   for _, page in ipairs(pages or {}) do

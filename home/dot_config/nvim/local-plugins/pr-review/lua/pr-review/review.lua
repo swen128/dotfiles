@@ -237,7 +237,6 @@ function M.pick_file()
     fzf_opts = {
       ["--delimiter"] = "\\t",
       ["--with-nth"] = "3..",
-      ["--nth"] = "3..",
       ["--preview"] = (function()
         local diff = ("git -C %s diff %s -- {2} 2>/dev/null"):format(vim.fn.shellescape(workdir), vim.fn.shellescape(base))
         if vim.fn.executable("delta") == 1 then
