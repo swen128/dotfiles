@@ -25,6 +25,7 @@ All GitHub access goes through the `gh` CLI (no token configuration needed).
 | `:Pr discard` | Discard all pending review comments |
 | `:Pr merge` | Merge the PR (pick squash / merge / rebase, optionally delete the branch) |
 | `:Pr automerge` | Enable auto-merge (squash / merge / rebase) or disable it |
+| `:Pr draft` | Toggle the PR between draft and ready for review |
 | `:Pr refresh` | Refetch comments |
 | `:Pr viewed` | Toggle the current file's viewed state |
 | `:Pr checkout` | `gh pr checkout` in your main working tree and switch the session to it |
@@ -65,6 +66,7 @@ Default buffer-local keymaps (configurable via `setup`, set to `false` to disabl
 | `<leader>rT` | Pick from all threads |
 | `<leader>rs` | Submit review |
 | `<leader>rr` | Refresh comments |
+| `<leader>rd` | Toggle the PR between draft and ready for review |
 | `<leader>rv` | Toggle the current file as viewed |
 | `]C` / `[C` | Next / previous commented line |
 | `]F` / `[F` | Next / previous changed file (marks the file you leave as viewed) |

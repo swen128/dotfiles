@@ -48,6 +48,9 @@ M.subcommands = {
   automerge = function()
     require("pr-review.pr").automerge()
   end,
+  draft = function()
+    require("pr-review.pr").draft()
+  end,
   viewed = function()
     local path = vim.b.pr_path
     if path then

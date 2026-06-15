@@ -627,6 +627,35 @@ function M.automerge()
   end)
 end
 
+function M.draft()
+  local st = M.state
+  if not st then
+    notify("no active review session — run :Pr open", vim.log.levels.WARN)
+    return
+  end
+  local to_draft = not st.pr.isDraft
+  local verb = to_draft and "convert to draft" or "mark ready for review"
+  require("pr-review.ui").select({ "Yes", "No" }, {
+    prompt = ("%s #%d?"):format(verb:sub(1, 1):upper() .. verb:sub(2), st.pr.number),
+  }, function(choice)
+    if not choice or choice == "No" then
+      return
+    end
+    local args = { "pr", "ready", tostring(st.pr.number) }
+    if to_draft then
+      table.insert(args, "--undo")
+    end
+    gh.run(args, {}, function(ok, out)
+      if not ok then
+        notify(tostring(out), vim.log.levels.ERROR)
+        return
+      end
+      st.pr.isDraft = to_draft
+      notify(("#%d %s"):format(st.pr.number, to_draft and "converted to draft" or "marked ready for review"))
+    end)
+  end)
+end
+
 function M.status()
   local st = M.state
   if not st then
@@ -636,7 +665,7 @@ function M.status()
   notify(("#%d %s [%s]\n%s ← %s · %d files · %d threads · %d pending"):format(
     st.pr.number,
     st.pr.title,
-    st.pr.state,
+    st.pr.isDraft and "DRAFT" or st.pr.state,
     st.pr.baseRefName,
     st.pr.headRefName,
     #st.files,

@@ -9,6 +9,7 @@ M.defaults = {
     threads = "<leader>rT",
     submit = "<leader>rs",
     refresh = "<leader>rr",
+    draft = "<leader>rd",
     viewed = "<leader>rv",
     next_comment = "]C",
     prev_comment = "[C",
