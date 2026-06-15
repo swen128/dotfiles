@@ -40,15 +40,6 @@ function M.api(endpoint, opts, cb)
   M.run(args, { stdin = stdin }, cb)
 end
 
-function M.graphql(query, variables, cb)
-  local args = { "api", "graphql", "-f", "query=" .. query }
-  for k, v in pairs(variables or {}) do
-    table.insert(args, "-F")
-    table.insert(args, ("%s=%s"):format(k, v))
-  end
-  M.run(args, {}, cb)
-end
-
 function M.gql(query, variables, cb)
   local stdin = vim.json.encode({ query = query, variables = variables or vim.empty_dict() })
   M.run({ "api", "graphql", "--input", "-" }, { stdin = stdin }, function(ok, res)

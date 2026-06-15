@@ -232,12 +232,12 @@ function M.fetch_viewed(cb)
     if cursor then
       vars.cursor = cursor
     end
-    gh.graphql(VIEWED_QUERY, vars, function(ok, res)
+    gh.gql(VIEWED_QUERY, vars, function(ok, res)
       if not ok or type(res) ~= "table" then
         cb()
         return
       end
-      local files = res.data.repository.pullRequest.files
+      local files = res.repository.pullRequest.files
       for _, n in ipairs(files.nodes or {}) do
         st.viewed[n.path] = n.viewerViewedState == "VIEWED"
       end
@@ -278,7 +278,7 @@ function M.set_viewed(path, viewed, cb)
 mutation($id:ID!, $path:String!) {
   %s(input:{pullRequestId:$id, path:$path}) { clientMutationId }
 }]]):format(mutation)
-  gh.graphql(query, { id = st.pr.id, path = path }, function(ok, res)
+  gh.gql(query, { id = st.pr.id, path = path }, function(ok, res)
     if not ok then
       notify(tostring(res), vim.log.levels.ERROR)
       return
