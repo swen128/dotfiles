@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Claude Design</title>
+  <link rel="stylesheet" href="/assets/style.css" />
+</head>
+<body>
+  <header class="toolbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <h1 class="title" id="project-title">Claude Design</h1>
+    </div>
+
+    <nav class="modes" id="modes" aria-label="Interaction mode">
+      <button class="mode-btn is-active" data-mode="browse" title="Browse (no interaction)">Browse</button>
+      <button class="mode-btn" data-mode="comment" title="Click an element to leave a comment">Comment</button>
+      <button class="mode-btn" data-mode="edit-text" title="Edit text in place">Edit text</button>
+      <button class="mode-btn" data-mode="edit-style" title="Change color, background, size">Edit style</button>
+    </nav>
+
+    <div class="toolbar-right">
+      <span class="conn" id="conn" title="Live reload connection">
+        <span class="conn-dot"></span><span class="conn-label">live</span>
+      </span>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs" aria-label="Project files"></div>
+
+  <main class="stage">
+    <section class="preview">
+      <iframe id="preview" title="Design preview" src="about:blank"></iframe>
+      <div class="preview-empty" id="preview-empty" hidden>
+        <p>No artifact yet.</p>
+        <p class="muted">The model will write design files into this project.</p>
+      </div>
+    </section>
+
+    <aside class="panel" id="panel">
+      <div class="panel-head">
+        <h2>Comments</h2>
+        <span class="count" id="comment-count">0</span>
+      </div>
+      <ul class="comments" id="comments"></ul>
+      <div class="panel-empty" id="panel-empty">
+        <p class="muted">No comments yet. Switch to <strong>Comment</strong> mode and click an element in the preview.</p>
+      </div>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="/assets/app.js"></script>
+</body>
+</html>
