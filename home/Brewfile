@@ -30,6 +30,7 @@ brew "git-secrets" # prevents secret values geting into Git repo
 brew "glow" # markdown viewer
 brew "gnupg" # GPG
 brew "grep" # grep (latest)
+brew "herdr" # agent multiplexer that lives in your terminal
 brew "highlight" # code syntax highlighting
 brew "htop" # a top alternative
 brew "jandedobbeleer/oh-my-posh/oh-my-posh" # a prompt theme engine

@@ -1,0 +1,94 @@
+# herdr configuration — key bindings mirror ~/.config/tmux/tmux.conf
+
+onboarding = false
+
+[theme]
+name = "catppuccin"
+
+[keys]
+# prefix is Ctrl-q, same as tmux
+prefix = "ctrl+q"
+
+# defaults moved out of the way of the tmux-style bindings below
+detach = "prefix+d"
+settings = "prefix+ctrl+s"
+goto = "prefix+ctrl+g"
+resize_mode = "prefix+shift+r"
+
+# kill pane/tab without confirmation (tmux: x / q)
+close_pane = "prefix+x"
+close_tab = "prefix+q"
+
+# workspaces stand in for tmux sessions (tmux: C-c new / C-f find / S choose-tree)
+new_workspace = "prefix+ctrl+c"
+workspace_picker = ["prefix+ctrl+f", "prefix+shift+s"]
+
+# splits (tmux: s horizontal / v vertical)
+split_horizontal = "prefix+s"
+split_vertical = "prefix+v"
+
+# pane navigation (tmux: h/j/k/l)
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# maximize current pane (tmux: +)
+zoom = "prefix+plus"
+
+# tab navigation (tmux windows: C-h / C-l / Tab for last)
+previous_tab = "prefix+ctrl+h"
+next_tab = "prefix+ctrl+l"
+last_pane = "prefix+tab"
+cycle_pane_next = "prefix+o"
+
+# rename tab (tmux: ,)
+rename_tab = "prefix+comma"
+
+# send scrollback to the editor (tmux: w)
+edit_scrollback = "prefix+w"
+
+# reload configuration (tmux: r)
+reload_config = "prefix+r"
+
+# open Lazygit in a temporary pane (tmux: g popup)
+[[keys.command]]
+key = "prefix+g"
+type = "pane"
+command = "lazygit"
+description = "run lazygit"
+
+# swap pane with the next/previous one (tmux: > / <)
+[[keys.command]]
+key = "prefix+>"
+type = "shell"
+command = "~/.config/herdr/swap.sh next"
+description = "swap pane with next"
+
+[[keys.command]]
+key = "prefix+<"
+type = "shell"
+command = "~/.config/herdr/swap.sh prev"
+description = "swap pane with previous"
+
+# rebalance panes evenly (tmux: | even-horizontal / - even-vertical)
+[[keys.command]]
+key = "prefix+|"
+type = "shell"
+command = "~/.config/herdr/balance.sh right"
+description = "balance panes horizontally"
+
+[[keys.command]]
+key = "prefix+minus"
+type = "shell"
+command = "~/.config/herdr/balance.sh down"
+description = "balance panes vertically"
+
+[ui]
+mouse_capture = true
+# create tabs immediately with generated names, like tmux new-window
+prompt_new_tab_name = false
+
+[session]
+# tmux-resurrect/continuum equivalent: restore agent panes after server restart
+resume_agents_on_restore = true
