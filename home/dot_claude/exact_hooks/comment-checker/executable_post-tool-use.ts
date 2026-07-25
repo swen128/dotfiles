@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 import { existsSync, readFileSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, extname, join } from "node:path";
 import type { Node } from "@vscode/tree-sitter-wasm";
 
@@ -214,23 +213,24 @@ ${listing}
 </comments>`;
 }
 
-function isInTempDir(filePath: string): boolean {
-  return /^\/(private\/)?tmp\//.test(filePath) || filePath.startsWith(tmpdir());
-}
-
-function isGitIgnored(filePath: string): boolean {
+function git(args: string[], cwd: string): number | null {
   try {
-    const result = Bun.spawnSync(["git", "check-ignore", "-q", "--", filePath], {
-      cwd: dirname(filePath),
-    });
-    return result.exitCode === 0;
+    return Bun.spawnSync(["git", ...args], { cwd }).exitCode;
   } catch {
-    return false;
+    return null;
   }
 }
 
+function isGitManaged(filePath: string): boolean {
+  const cwd = dirname(filePath);
+  return (
+    git(["rev-parse", "--is-inside-work-tree"], cwd) === 0 &&
+    git(["check-ignore", "-q", "--", filePath], cwd) !== 0
+  );
+}
+
 function shouldCheck(filePath: string): boolean {
-  return existsSync(filePath) && !isInTempDir(filePath) && !isGitIgnored(filePath);
+  return existsSync(filePath) && isGitManaged(filePath);
 }
 
 async function main(): Promise<void> {
