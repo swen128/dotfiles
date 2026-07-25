@@ -84,6 +84,18 @@
         ]
       }
     ],
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/comment-checker/post-tool-use.ts",
+            "timeout": 300
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "matcher": "",
@@ -171,7 +183,6 @@
   },
   "enabledPlugins": {
     "todo-enforcer@harness": false,
-    "comment-checker@harness": true,
     "typescript-lsp@claude-plugins-official": true,
     "telegram@claude-plugins-official": false,
     "ci-watcher-channel@harness": true,
@@ -187,7 +198,11 @@
     "daily-report@dinii-plugin-market": true,
     "auth-platform@dinii-plugin-market": false,
     "ai-phase-judge@dinii-plugin-market": true,
-    "pachi@dinii-plugin-market": true
+    "pachi@dinii-plugin-market": true,
+    "knowledgebase@dinii-plugin-market": true,
+    "quarterly-evaluation@dinii-plugin-market": true,
+    "listen@dinii-plugin-market": true,
+    "design@dinii-plugin-market": true
   },
   "extraKnownMarketplaces": {
     "dinii-plugin-market": {
