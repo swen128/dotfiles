@@ -1,8 +1,17 @@
 #!/usr/bin/env node
 // @ts-check
 
+const fs = require("fs");
+const os = require("os");
 const path = require("path");
-const { spawn } = require("child_process");
+const { execFileSync, spawn } = require("child_process");
+
+const configDir =
+  process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
+const usageCachePath = path.join(configDir, "usage-cache.json");
+const usageLockPath = path.join(configDir, "usage-cache.lock");
+const usageCacheTtlMs = 60_000;
+const usageRefreshLockTtlMs = 30_000;
 
 /**
  * @param {number} tokens
@@ -54,6 +63,85 @@ const formatRateLimit = (label, pct, resetsAt) => {
   return `${label} ${colorForPercentage(p)}${p}%\x1b[0m${formatRemaining(resetsAt)}`;
 };
 
+const readOauthAccessToken = () => {
+  try {
+    const raw = execFileSync(
+      "security",
+      ["find-generic-password", "-s", "Claude Code-credentials", "-w"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    );
+    return JSON.parse(raw)?.claudeAiOauth?.accessToken || null;
+  } catch {}
+  try {
+    const raw = fs.readFileSync(path.join(configDir, ".credentials.json"), "utf8");
+    return JSON.parse(raw)?.claudeAiOauth?.accessToken || null;
+  } catch {}
+  return null;
+};
+
+const refreshUsageCache = async () => {
+  const token = readOauthAccessToken();
+  if (!token) return;
+
+  const res = await fetch("https://api.anthropic.com/api/oauth/usage", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "anthropic-beta": "oauth-2025-04-20",
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!res.ok) return;
+
+  const limits = (await res.json())?.limits;
+  if (!Array.isArray(limits)) return;
+
+  const modelScoped = limits
+    .filter((limit) => limit?.scope?.model?.display_name)
+    .map((limit) => ({
+      display_name: limit.scope.model.display_name,
+      used_percentage: limit.percent,
+      resets_at: Date.parse(limit.resets_at) / 1000 || undefined,
+    }));
+
+  const tmpPath = `${usageCachePath}.${process.pid}`;
+  fs.writeFileSync(
+    tmpPath,
+    JSON.stringify({ fetchedAt: Date.now(), model_scoped: modelScoped }),
+  );
+  fs.renameSync(tmpPath, usageCachePath);
+};
+
+const readUsageCache = () => {
+  try {
+    return JSON.parse(fs.readFileSync(usageCachePath, "utf8"));
+  } catch {
+    return null;
+  }
+};
+
+const scheduleUsageRefresh = (cache) => {
+  if (cache && Date.now() - cache.fetchedAt < usageCacheTtlMs) return;
+  try {
+    const lockAge = Date.now() - fs.statSync(usageLockPath).mtimeMs;
+    if (lockAge < usageRefreshLockTtlMs) return;
+  } catch {}
+
+  try {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.writeFileSync(usageLockPath, "");
+  } catch {
+    return;
+  }
+
+  const child = spawn(process.execPath, [__filename, "--refresh-usage"], {
+    stdio: "ignore",
+    detached: true,
+  });
+  child.on("error", () => {});
+  child.unref();
+};
+
 /**
  * fire-and-forget: stdio ignored + detached + unref so the statusline never blocks
  * @param {any} data
@@ -98,11 +186,7 @@ const sendTelemetry = (data) => {
   child.unref();
 };
 
-/**
- * @param {any} data
- * @returns {string}
- */
-const buildStatusLine = (data) => {
+const buildStatusLine = (data, usageCache) => {
   const model = data.model?.display_name || "Unknown";
   const currentDir = path.basename(
     data.workspace?.current_dir || data.cwd || ".",
@@ -139,6 +223,9 @@ const buildStatusLine = (data) => {
       data.rate_limits?.seven_day?.used_percentage,
       data.rate_limits?.seven_day?.resets_at,
     ),
+    ...(usageCache?.model_scoped || []).map((limit) =>
+      formatRateLimit(limit.display_name, limit.used_percentage, limit.resets_at),
+    ),
   ].filter(Boolean);
 
   return rateLimits.length > 0
@@ -146,12 +233,20 @@ const buildStatusLine = (data) => {
     : firstLine;
 };
 
-const chunks = [];
-process.stdin.on("data", (chunk) => chunks.push(chunk));
-process.stdin.on("end", () => {
-  const data = JSON.parse(chunks.join(""));
-  process.stdout.write(buildStatusLine(data) + "\n");
-  try {
-    sendTelemetry(data);
-  } catch {}
-});
+if (process.argv[2] === "--refresh-usage") {
+  refreshUsageCache().catch(() => {});
+} else {
+  const chunks = [];
+  process.stdin.on("data", (chunk) => chunks.push(chunk));
+  process.stdin.on("end", () => {
+    const data = JSON.parse(chunks.join(""));
+    const usageCache = readUsageCache();
+    process.stdout.write(buildStatusLine(data, usageCache) + "\n");
+    try {
+      scheduleUsageRefresh(usageCache);
+    } catch {}
+    try {
+      sendTelemetry(data);
+    } catch {}
+  });
+}
