@@ -1,0 +1,39 @@
+network_access = true
+
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "xhigh"
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+
+[tui]
+notifications = true
+status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-used", "five-hour-limit", "weekly-limit"]
+
+[tui.model_availability_nux]
+"gpt-5.5" = 4
+
+[features]
+rmcp_client = true
+
+[mcp_servers.notion]
+url = "https://mcp.notion.com/mcp"
+
+[shell_environment_policy]
+set = { CLAUDECODE = "1", AGENT = "1" }
+
+[sandbox_workspace_write]
+network_access = true
+
+[projects."/Users/yuto_ogino/.local/share/chezmoi"]
+trust_level = "trusted"
+
+[projects."/Users/yuto_ogino/programs/dinii-self-all"]
+trust_level = "trusted"
+
+[projects."/Users/yuto_ogino"]
+trust_level = "trusted"
+
+[projects."/Users/yuto_ogino/ghq/github.com/BloopAI/vibe-kanban"]
+trust_level = "trusted"
