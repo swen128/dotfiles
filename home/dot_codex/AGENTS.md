@@ -1,15 +1,10 @@
 ## Git worktree management
 
-Utilize a fixed pool of worktrees, instead of creating or deleting ephemeral ones.
-Worktree is *released* iff it's in detached HEAD state.
+Utilize a fixed pool of worktrees, instead of creating or deleting ephemeral one for each short-lived task.
+Worktree is considered *released* iff it's in detached HEAD state.
 
-```bash
-ws status
-ws switch <branch-name> # Claim a worktree, creating or switching to the branch
-ws done                 # Release current worktree
-```
-
-If the current worktree is dirty and unrelated to your work, always use `ws switch` first.
+Claim a worktree if the current tree is dirty and unrelated to your task.
+Release the worktree when a PR is marked ready for review, or the task is dropped.
 
 ## Markdown writing
 
