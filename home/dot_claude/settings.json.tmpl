@@ -31,6 +31,7 @@
       "mcp__sentry__analyze_issue_with_seer"
     ]
   },
+  "model": "claude-fable-5[1m]",
   "hooks": {
     "SessionStart": [
       {
@@ -185,22 +186,21 @@
     "telegram@claude-plugins-official": false,
     "ci-watcher-channel@harness": true,
     "ultra-debug@harness": true,
-    "dinii-kpi@dinii-plugin-market": true,
-    "slack-post-generator@dinii-plugin-market": true,
+    "slack-post-generator@dinii-plugin-market": false,
     "member-lookup@dinii-plugin-market": true,
     "bakuraku-expense@dinii-plugin-market": true,
     "quarterly-self-eval@dinii-plugin-market": false,
-    "statusline-reporter@dinii-plugin-market": true,
-    "customer-insights@dinii-plugin-market": true,
+    "customer-insights@dinii-plugin-market": false,
     "oncall@dinii-plugin-market": true,
     "daily-report@dinii-plugin-market": true,
     "auth-platform@dinii-plugin-market": false,
-    "ai-phase-judge@dinii-plugin-market": true,
+    "ai-phase-judge@dinii-plugin-market": false,
     "pachi@dinii-plugin-market": true,
     "knowledgebase@dinii-plugin-market": true,
     "quarterly-evaluation@dinii-plugin-market": true,
     "listen@dinii-plugin-market": true,
-    "design@dinii-plugin-market": true
+    "design@dinii-plugin-market": true,
+    "dinii-kpi@dinii-plugin-market": true
   },
   "extraKnownMarketplaces": {
     "dinii-plugin-market": {
@@ -211,7 +211,12 @@
       "autoUpdate": true
     }
   },
-  "effortLevel": "low",
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "xhigh"
+    }
+  },
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
   "editorMode": "vim",
