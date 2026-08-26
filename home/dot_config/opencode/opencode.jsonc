@@ -43,8 +43,4 @@
       },
     },
   },
-  "plugin": [
-    "./plugins/env-vars.ts",
-    "./plugins/monitor-tool"
-  ],
 }
