@@ -5,7 +5,7 @@ import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import MonitorPlugin from "./index";
+import MonitorPlugin from "../monitor-tool";
 
 const PORT = 4099;
 const BASE_URL = `http://127.0.0.1:${PORT}`;
