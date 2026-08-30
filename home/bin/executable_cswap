@@ -1,0 +1,915 @@
+#!/usr/bin/env bun
+import { chmod, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { homedir, platform, userInfo } from "node:os";
+import { dirname, join } from "node:path";
+import { randomUUID } from "node:crypto";
+
+const VERSION = "0.1.0";
+const SCHEMA_VERSION = 1;
+const OAUTH_BETA = "oauth-2025-04-20";
+const OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e";
+const SHARED_CREDENTIAL_KEYS = new Set([
+  "mcpOAuth",
+  "mcpOAuthClientConfig",
+  "mcpXaaIdp",
+  "mcpXaaIdpConfig",
+  "pluginSecrets",
+]);
+
+type Json = Record<string, any>;
+type Account = {
+  email: string;
+  uuid: string;
+  organizationUuid: string;
+  organizationName: string;
+  added: string;
+  alias?: string;
+  disabled?: boolean;
+  kind?: "oauth" | "api_key";
+};
+type State = {
+  schemaVersion: number;
+  sequence: number[];
+  activeAccountNumber: number | null;
+  accounts: Record<string, Account>;
+  lastUpdated: string;
+};
+type UsageWindow = { pct: number; resetsAt?: string };
+type Usage = {
+  fiveHour?: UsageWindow;
+  sevenDay?: UsageWindow;
+  scoped?: Array<UsageWindow & { name: string }>;
+  fetchedAt: string;
+};
+
+const isMac = (process.env.CSWAP_PLATFORM ?? platform()) === "darwin";
+const configHome = process.env.CLAUDE_CONFIG_DIR || join(homedir(), ".claude");
+const globalConfigPath = process.env.CSWAP_CONFIG_FILE ||
+  (process.env.CLAUDE_CONFIG_DIR
+    ? join(process.env.CLAUDE_CONFIG_DIR, ".claude.json")
+    : join(homedir(), ".claude.json"));
+const activeCredentialsPath = process.env.CSWAP_CREDENTIALS_FILE || join(configHome, ".credentials.json");
+const dataRoot = process.env.CSWAP_DATA_DIR ||
+  (isMac ? join(homedir(), ".claude-swap-ts") : join(process.env.XDG_DATA_HOME || join(homedir(), ".local", "share"), "claude-swap-ts"));
+const statePath = join(dataRoot, "accounts.json");
+const credentialsDir = join(dataRoot, "credentials");
+const usagePath = join(dataRoot, "usage.json");
+const settingsPath = join(dataRoot, "settings.json");
+const autoswitchStatePath = join(dataRoot, "autoswitch.json");
+const lockPath = join(dataRoot, ".lock");
+
+const defaults: Record<string, unknown> = {
+  "autoswitch.threshold": 90,
+  "autoswitch.intervalSeconds": 60,
+  "autoswitch.cooldownSeconds": 300,
+  "autoswitch.hysteresisPct": 10,
+  "autoswitch.strategy": "best",
+  "autoswitch.model": null,
+};
+
+class CliError extends Error {
+  constructor(message: string, readonly exitCode = 1) {
+    super(message);
+  }
+}
+
+function now(): string {
+  return new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
+}
+
+async function readJson(path: string, fallback: Json = {}): Promise<Json> {
+  try {
+    const value = JSON.parse(await readFile(path, "utf8"));
+    if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("expected a JSON object");
+    return value;
+  } catch (error: any) {
+    if (error?.code === "ENOENT") return fallback;
+    throw new CliError(`Cannot read ${path}: ${error.message}`);
+  }
+}
+
+async function atomicWrite(path: string, value: string, mode = 0o600): Promise<void> {
+  await mkdir(dirname(path), { recursive: true, mode: 0o700 });
+  const temporary = `${path}.${process.pid}.${randomUUID()}.tmp`;
+  await writeFile(temporary, value, { mode });
+  await chmod(temporary, mode).catch(() => {});
+  await rename(temporary, path);
+}
+
+async function writeJson(path: string, value: unknown): Promise<void> {
+  await atomicWrite(path, `${JSON.stringify(value, null, 2)}\n`);
+}
+
+function emptyState(): State {
+  return { schemaVersion: 1, sequence: [], activeAccountNumber: null, accounts: {}, lastUpdated: now() };
+}
+
+async function loadState(): Promise<State> {
+  const data = await readJson(statePath, emptyState());
+  if (!data.accounts || !Array.isArray(data.sequence)) throw new CliError(`Invalid account data in ${statePath}`);
+  return data as State;
+}
+
+async function saveState(state: State): Promise<void> {
+  state.lastUpdated = now();
+  await writeJson(statePath, state);
+}
+
+async function withLock<T>(operation: () => Promise<T>): Promise<T> {
+  await mkdir(dataRoot, { recursive: true, mode: 0o700 });
+  const deadline = Date.now() + 10_000;
+  while (true) {
+    try {
+      await mkdir(lockPath);
+      break;
+    } catch (error: any) {
+      if (error?.code !== "EEXIST") throw error;
+      const age = Date.now() - (await stat(lockPath).catch(() => ({ mtimeMs: Date.now() }))).mtimeMs;
+      if (age > 30_000) {
+        await rm(lockPath, { recursive: true, force: true });
+        continue;
+      }
+      if (Date.now() >= deadline) throw new CliError("Another cswap process is updating credentials");
+      await Bun.sleep(100);
+    }
+  }
+  try {
+    return await operation();
+  } finally {
+    await rm(lockPath, { recursive: true, force: true });
+  }
+}
+
+function security(args: string[], input?: string): string | null {
+  const result = Bun.spawnSync(["/usr/bin/security", ...args], { stdin: input ? new TextEncoder().encode(input) : undefined, stdout: "pipe", stderr: "pipe" });
+  if (result.exitCode === 44) return null;
+  if (result.exitCode !== 0) throw new CliError(`Keychain operation failed: ${result.stderr.toString().trim()}`);
+  return result.stdout.toString().replace(/\n$/, "");
+}
+
+function keychainUser(): string {
+  return process.env.USER || userInfo().username || "claude-code-user";
+}
+
+function keychainRead(service: string, account: string): string | null {
+  return security(["find-generic-password", "-a", account, "-s", service, "-w"]);
+}
+
+function keychainWrite(service: string, account: string, value: string): void {
+  const hex = Buffer.from(value).toString("hex");
+  const quote = (input: string) => `"${input.replaceAll("\\", "\\\\").replaceAll('"', '\\"')}"`;
+  const command = `add-generic-password -U -a ${quote(account)} -s ${quote(service)} -X ${hex}\n`;
+  if (Buffer.byteLength(command) <= 4032) security(["-i"], command);
+  else security(["add-generic-password", "-U", "-a", account, "-s", service, "-X", hex]);
+}
+
+function keychainDelete(service: string, account: string): void {
+  security(["delete-generic-password", "-a", account, "-s", service]);
+}
+
+function credentialFile(slot: string): string {
+  return join(credentialsDir, `${slot}.json`);
+}
+
+function canonicalSlot(value: unknown, source = "slot"): string {
+  const text = String(value ?? "");
+  if (!/^[1-9]\d*$/.test(text) || !Number.isSafeInteger(Number(text))) {
+    throw new CliError(`${source} must be a positive integer`, 2);
+  }
+  return String(Number(text));
+}
+
+function validateAccount(account: Account, source = "account"): void {
+  if (!account || typeof account.email !== "string" || !account.email || /[\x00-\x1f\x7f]/.test(account.email)) {
+    throw new CliError(`${source} has an invalid email`);
+  }
+  if (account.kind && !["oauth", "api_key"].includes(account.kind)) throw new CliError(`${source} has an invalid credential kind`);
+}
+
+async function readStoredCredential(slot: string, account: Account): Promise<string> {
+  const value = isMac
+    ? keychainRead("claude-swap-ts", `${slot}:${account.email}`)
+    : await readFile(credentialFile(slot), "utf8").catch((error: any) => error?.code === "ENOENT" ? "" : Promise.reject(error));
+  if (!value) throw new CliError(`Account ${slot} has no stored credentials; re-add it`);
+  return value;
+}
+
+async function writeStoredCredential(slot: string, account: Account, value: string): Promise<void> {
+  if (isMac) keychainWrite("claude-swap-ts", `${slot}:${account.email}`, value);
+  else await atomicWrite(credentialFile(slot), value);
+}
+
+async function deleteStoredCredential(slot: string, account: Account): Promise<void> {
+  if (isMac) keychainDelete("claude-swap-ts", `${slot}:${account.email}`);
+  else await rm(credentialFile(slot), { force: true });
+}
+
+async function readActiveCredential(kind: Account["kind"] = "oauth"): Promise<string> {
+  if (kind === "api_key") {
+    if (isMac) return keychainRead("Claude Code", keychainUser()) || "";
+    const config = await readJson(globalConfigPath);
+    return typeof config.primaryApiKey === "string" ? config.primaryApiKey : "";
+  }
+  if (isMac) return keychainRead("Claude Code-credentials", keychainUser()) || "";
+  return await readFile(activeCredentialsPath, "utf8").catch((error: any) => error?.code === "ENOENT" ? "" : Promise.reject(error));
+}
+
+function mergeSharedCredentialFields(target: string, live: string): string {
+  try {
+    const targetData = JSON.parse(target);
+    const liveData = JSON.parse(live);
+    if (!targetData.claudeAiOauth || !liveData || typeof liveData !== "object") return target;
+    for (const key of SHARED_CREDENTIAL_KEYS) {
+      delete targetData[key];
+      if (key in liveData) targetData[key] = liveData[key];
+    }
+    return JSON.stringify(targetData);
+  } catch {
+    return target;
+  }
+}
+
+async function writeActiveCredential(value: string, kind: Account["kind"]): Promise<void> {
+  const config = await readJson(globalConfigPath);
+  if (kind === "api_key") {
+    if (isMac) {
+      keychainWrite("Claude Code", keychainUser(), value);
+      keychainDelete("Claude Code-credentials", keychainUser());
+      delete config.primaryApiKey;
+    } else {
+      config.primaryApiKey = value;
+      await rm(activeCredentialsPath, { force: true });
+    }
+    const responses = config.customApiKeyResponses && typeof config.customApiKeyResponses === "object"
+      ? config.customApiKeyResponses
+      : {};
+    const approved = Array.isArray(responses.approved) ? responses.approved : [];
+    if (!approved.includes(value.slice(-20))) approved.push(value.slice(-20));
+    config.customApiKeyResponses = { ...responses, approved, rejected: Array.isArray(responses.rejected) ? responses.rejected : [] };
+  } else {
+    const live = await readActiveCredential("oauth");
+    value = mergeSharedCredentialFields(value, live);
+    if (isMac) {
+      keychainWrite("Claude Code-credentials", keychainUser(), value);
+      keychainDelete("Claude Code", keychainUser());
+    } else {
+      await atomicWrite(activeCredentialsPath, value);
+    }
+    delete config.primaryApiKey;
+  }
+  await writeJson(globalConfigPath, config);
+}
+
+function currentIdentity(config: Json): Account | null {
+  const oauth = config.oauthAccount;
+  if (!oauth || typeof oauth.emailAddress !== "string" || !oauth.emailAddress) return null;
+  return {
+    email: oauth.emailAddress,
+    uuid: oauth.accountUuid || "",
+    organizationUuid: oauth.organizationUuid || "",
+    organizationName: oauth.organizationName || "",
+    added: now(),
+  };
+}
+
+function resolveAccount(state: State, identifier: string): string {
+  if (state.accounts[identifier]) return identifier;
+  const normalized = identifier.toLowerCase();
+  const matches = Object.entries(state.accounts).filter(([, account]) =>
+    account.email.toLowerCase() === normalized || account.alias?.toLowerCase() === normalized);
+  if (matches.length === 0) throw new CliError(`No account found for '${identifier}'`);
+  if (matches.length > 1) throw new CliError(`'${identifier}' matches multiple accounts; use a slot number`);
+  return matches[0]![0];
+}
+
+function nextSlot(state: State): string {
+  let slot = 1;
+  while (state.accounts[String(slot)]) slot++;
+  return String(slot);
+}
+
+function normalizeAlias(value: string): string {
+  const alias = value.trim().toLowerCase();
+  if (!alias || /^\d+$/.test(alias) || alias.startsWith("-") || !/^[a-z0-9_.-]+$/.test(alias)) {
+    throw new CliError("Alias must contain letters, digits, '.', '_' or '-', and cannot be numeric");
+  }
+  return alias;
+}
+
+async function addCurrent(flags: Flags): Promise<void> {
+  await withLock(async () => {
+    const config = await readJson(globalConfigPath);
+    const account = currentIdentity(config);
+    if (!account) throw new CliError("No active Claude account found; log in with Claude Code first");
+    validateAccount(account, "active account");
+    const credential = await readActiveCredential("oauth");
+    if (!credential) throw new CliError("No active OAuth credentials found");
+    const state = await loadState();
+    const existing = Object.entries(state.accounts).find(([, item]) => item.email === account.email && item.organizationUuid === account.organizationUuid);
+    const slot = flags.slot ? canonicalSlot(flags.slot, "--slot") : existing?.[0] || nextSlot(state);
+    if (state.accounts[slot] && !existing && !flags.force) throw new CliError(`Slot ${slot} is occupied; pass --force to replace it`);
+    if (flags.alias) account.alias = normalizeAlias(String(flags.alias));
+    else if (existing?.[1].alias) account.alias = existing[1].alias;
+    const migrated = existing && existing[0] !== slot ? existing : null;
+    if (migrated) {
+      delete state.accounts[existing[0]];
+      state.sequence = state.sequence.filter((value) => value !== Number(existing[0]));
+    }
+    const displaced = state.accounts[slot] && state.accounts[slot] !== existing?.[1] ? state.accounts[slot] : null;
+    const displacedCredential = displaced ? await readStoredCredential(slot, displaced) : null;
+    state.accounts[slot] = account;
+    if (!state.sequence.includes(Number(slot))) state.sequence.push(Number(slot));
+    state.sequence.sort((a, b) => a - b);
+    state.activeAccountNumber = Number(slot);
+    try {
+      await writeStoredCredential(slot, account, credential);
+      await saveState(state);
+    } catch (error) {
+      if (displaced && displacedCredential) await writeStoredCredential(slot, displaced, displacedCredential).catch(() => {});
+      throw error;
+    }
+    if (migrated) await deleteStoredCredential(migrated[0], migrated[1]);
+    if (isMac && displaced && displaced.email !== account.email) await deleteStoredCredential(slot, displaced);
+    console.log(`${existing ? "Updated" : "Added"} account ${slot}: ${account.email}`);
+  });
+}
+
+async function addToken(tokenArg: string | undefined, flags: Flags): Promise<void> {
+  if (tokenArg !== "-") throw new CliError("Read tokens safely from stdin with: cswap add-token -", 2);
+  const token = (await Bun.stdin.text()).trim();
+  if (!token) throw new CliError("Token cannot be empty", 2);
+  await withLock(async () => {
+    const state = await loadState();
+    const slot = flags.slot ? canonicalSlot(flags.slot, "--slot") : nextSlot(state);
+    if (state.accounts[slot] && !flags.force) throw new CliError(`Slot ${slot} is occupied; pass --force to replace it`);
+    const kind = token.startsWith("sk-ant-api") ? "api_key" : "oauth";
+    const email = String(flags.email || `${kind === "api_key" ? "api-key" : "setup-token"}-${slot}@token.local`);
+    const account: Account = { email, uuid: "", organizationUuid: "", organizationName: "", added: now(), kind };
+    validateAccount(account);
+    const credential = kind === "api_key" ? token : JSON.stringify({ claudeAiOauth: { accessToken: token, scopes: ["user:inference", "user:profile"] } });
+    const displaced = state.accounts[slot];
+    const displacedCredential = displaced ? await readStoredCredential(slot, displaced) : null;
+    state.accounts[slot] = account;
+    if (!state.sequence.includes(Number(slot))) state.sequence.push(Number(slot));
+    state.sequence.sort((a, b) => a - b);
+    if (state.activeAccountNumber === Number(slot)) state.activeAccountNumber = null;
+    try {
+      await writeStoredCredential(slot, account, credential);
+      await saveState(state);
+    } catch (error) {
+      if (displaced && displacedCredential) await writeStoredCredential(slot, displaced, displacedCredential).catch(() => {});
+      throw error;
+    }
+    if (isMac && displaced && displaced.email !== account.email) await deleteStoredCredential(slot, displaced);
+    console.log(`Added account ${slot}: ${email} (${kind === "api_key" ? "API key" : "setup token"})`);
+  });
+}
+
+async function activate(slot: string, force = false): Promise<{ from: number | null; to: number; switched: boolean }> {
+  return withLock(async () => {
+    const state = await loadState();
+    const target = state.accounts[slot];
+    if (!target) throw new CliError(`Account ${slot} does not exist`);
+    const from = state.activeAccountNumber;
+    if (!force && from === Number(slot)) {
+      const live = await readActiveCredential(target.kind || "oauth");
+      const stored = await readStoredCredential(slot, target);
+      if (live === stored) return { from, to: Number(slot), switched: false };
+      if (live) {
+        await writeStoredCredential(slot, target, live);
+        return { from, to: Number(slot), switched: false };
+      }
+    }
+    if (!force && from && state.accounts[String(from)]) {
+      const activeAccount = state.accounts[String(from)];
+      const active = await readActiveCredential(activeAccount.kind || "oauth");
+      if (active) await writeStoredCredential(String(from), activeAccount, active);
+    }
+    const credential = await readStoredCredential(slot, target);
+    const config = await readJson(globalConfigPath);
+    config.oauthAccount = {
+      emailAddress: target.email,
+      accountUuid: target.uuid || "",
+      organizationUuid: target.organizationUuid || null,
+      organizationName: target.organizationName || null,
+    };
+    await writeJson(globalConfigPath, config);
+    await writeActiveCredential(credential, target.kind || "oauth");
+    state.activeAccountNumber = Number(slot);
+    await saveState(state);
+    return { from, to: Number(slot), switched: from !== Number(slot) };
+  });
+}
+
+function oauthData(credential: string): Json | null {
+  try {
+    const data = JSON.parse(credential).claudeAiOauth;
+    return data && typeof data === "object" ? data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshCredential(credential: string): Promise<string> {
+  const data = JSON.parse(credential);
+  const oauth = data.claudeAiOauth;
+  if (!oauth?.refreshToken) return credential;
+  const response = await fetch("https://platform.claude.com/v1/oauth/token", {
+    method: "POST",
+    headers: { "content-type": "application/json", "user-agent": `cswap-ts/${VERSION}` },
+    body: JSON.stringify({ grant_type: "refresh_token", refresh_token: oauth.refreshToken, client_id: OAUTH_CLIENT_ID }),
+  });
+  if (!response.ok) throw new CliError(`OAuth refresh failed (${response.status})`);
+  const result = await response.json() as Json;
+  oauth.accessToken = result.access_token;
+  oauth.expiresAt = Date.now() + Number(result.expires_in) * 1000;
+  if (result.refresh_token) oauth.refreshToken = result.refresh_token;
+  if (result.scope) oauth.scopes = String(result.scope).split(" ");
+  return JSON.stringify(data);
+}
+
+async function persistRefreshedCredential(slot: string, expected: string, refreshed: string): Promise<void> {
+  await withLock(async () => {
+    const state = await loadState();
+    const account = state.accounts[slot];
+    if (!account) return;
+    const current = await readStoredCredential(slot, account);
+    if (current === expected) await writeStoredCredential(slot, account, refreshed);
+  });
+}
+
+function normalizeUsage(raw: Json): Omit<Usage, "fetchedAt"> {
+  const result: Omit<Usage, "fetchedAt"> = {};
+  if (raw.five_hour) result.fiveHour = { pct: Number(raw.five_hour.utilization), resetsAt: raw.five_hour.resets_at };
+  if (raw.seven_day) result.sevenDay = { pct: Number(raw.seven_day.utilization), resetsAt: raw.seven_day.resets_at };
+  const scoped = Array.isArray(raw.limits) ? raw.limits.flatMap((limit: Json) => {
+    const name = limit?.scope?.model?.display_name;
+    return name && Number.isFinite(limit.percent) ? [{ name, pct: Number(limit.percent), resetsAt: limit.resets_at }] : [];
+  }) : [];
+  if (scoped.length) result.scoped = scoped;
+  return result;
+}
+
+async function usageFor(slot: string, state: State, refresh = false): Promise<Usage | null> {
+  const account = state.accounts[slot];
+  if (!account || account.kind === "api_key") return null;
+  const cache = await readJson(usagePath);
+  const cached = cache[slot] as Usage | undefined;
+  if (!refresh && cached && Date.now() - Date.parse(cached.fetchedAt) < 5 * 60_000) return cached;
+  let credential = slot === String(state.activeAccountNumber)
+    ? await readActiveCredential(account.kind || "oauth")
+    : await readStoredCredential(slot, account);
+  let oauth = oauthData(credential);
+  if (!oauth?.accessToken) return null;
+  if (slot !== String(state.activeAccountNumber) && oauth.refreshToken && Number(oauth.expiresAt || 0) < Date.now() + 300_000) {
+    const previous = credential;
+    credential = await refreshCredential(credential);
+    await persistRefreshedCredential(slot, previous, credential);
+    oauth = oauthData(credential);
+  }
+  const response = await fetch("https://api.anthropic.com/api/oauth/usage", {
+    headers: { authorization: `Bearer ${oauth?.accessToken}`, "anthropic-beta": OAUTH_BETA, "user-agent": `cswap-ts/${VERSION}` },
+  });
+  if (!response.ok) return cached || null;
+  const usage: Usage = { ...normalizeUsage(await response.json() as Json), fetchedAt: now() };
+  cache[slot] = usage;
+  await writeJson(usagePath, cache);
+  return usage;
+}
+
+function models(flags: Flags, settings: Json): string[] {
+  return String(flags.model ?? settings.autoswitch?.model ?? "").split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
+}
+
+function bindingPct(usage: Usage | null, wanted: string[] = []): number | null {
+  if (!usage) return null;
+  const percentages = [usage.fiveHour?.pct, usage.sevenDay?.pct].filter((value): value is number => typeof value === "number");
+  for (const scoped of usage.scoped || []) {
+    if (wanted.includes("all") || wanted.includes(scoped.name.toLowerCase())) percentages.push(scoped.pct);
+  }
+  return percentages.length ? Math.max(...percentages) : null;
+}
+
+function resetLabel(value?: string): string {
+  if (!value) return "";
+  const minutes = Math.max(0, Math.floor((Date.parse(value) - Date.now()) / 60_000));
+  return `, resets in ${minutes >= 1440 ? `${Math.floor(minutes / 1440)}d ${Math.floor(minutes % 1440 / 60)}h` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`}`;
+}
+
+async function listAccounts(flags: Flags): Promise<void> {
+  const state = await loadState();
+  const settings = await readJson(settingsPath);
+  const output = [];
+  for (const slot of state.sequence.map(String)) {
+    const account = state.accounts[slot];
+    if (!account) continue;
+    const usage = await usageFor(slot, state, Boolean(flags.refresh)).catch(() => null);
+    output.push({ number: Number(slot), email: account.email, alias: account.alias, active: state.activeAccountNumber === Number(slot), disabled: Boolean(account.disabled), kind: account.kind || "oauth", usageStatus: usage ? "ok" : "unavailable", usage });
+  }
+  if (flags.json) {
+    console.log(JSON.stringify({ schemaVersion: SCHEMA_VERSION, activeAccountNumber: state.activeAccountNumber, accounts: output }));
+    return;
+  }
+  if (!output.length) {
+    console.log("No accounts are managed yet.");
+    return;
+  }
+  for (const row of output) {
+    const markers = [row.active && "active", row.disabled && "disabled", row.kind === "api_key" && "API key"].filter(Boolean).join(", ");
+    console.log(`${row.number}: ${row.alias ? `${row.alias} (${row.email})` : row.email}${markers ? ` [${markers}]` : ""}`);
+    if (row.usage?.fiveHour) console.log(`   5h: ${row.usage.fiveHour.pct.toFixed(1)}%${resetLabel(row.usage.fiveHour.resetsAt)}`);
+    if (row.usage?.sevenDay) console.log(`   7d: ${row.usage.sevenDay.pct.toFixed(1)}%${resetLabel(row.usage.sevenDay.resetsAt)}`);
+    for (const scoped of row.usage?.scoped || []) console.log(`   ${scoped.name}: ${scoped.pct.toFixed(1)}%${resetLabel(scoped.resetsAt)}`);
+  }
+}
+
+async function switchAccount(identifier: string | undefined, flags: Flags): Promise<void> {
+  const state = await loadState();
+  if (flags.strategy && !["best", "next-available"].includes(String(flags.strategy))) {
+    throw new CliError("--strategy must be best or next-available", 2);
+  }
+  let target: string;
+  if (identifier) target = resolveAccount(state, identifier);
+  else if (flags.strategy === "best" || flags.strategy === "next-available") {
+    const settings = await readJson(settingsPath);
+    const wanted = models(flags, settings);
+    const candidates = state.sequence.map(String).filter((slot) => !state.accounts[slot]?.disabled);
+    const values: Array<{ slot: string; pct: number | null }> = [];
+    for (const slot of candidates) values.push({ slot, pct: bindingPct(await usageFor(slot, state).catch(() => null), wanted) });
+    const available = values.filter((item) => item.pct !== null && item.pct < 100);
+    if (flags.strategy === "best") target = available.sort((a, b) => a.pct! - b.pct!)[0]?.slot || String(state.activeAccountNumber || "");
+    else {
+      const index = candidates.indexOf(String(state.activeAccountNumber));
+      target = candidates.slice(index + 1).concat(candidates.slice(0, index + 1)).find((slot) => available.some((item) => item.slot === slot)) || "";
+    }
+  } else {
+    const candidates = state.sequence.map(String).filter((slot) => !state.accounts[slot]?.disabled);
+    const index = candidates.indexOf(String(state.activeAccountNumber));
+    target = candidates[(index + 1 + candidates.length) % candidates.length] || "";
+  }
+  if (!target) throw new CliError("No enabled account is available");
+  const result = await activate(target, Boolean(flags.force));
+  const account = (await loadState()).accounts[target];
+  const payload = { schemaVersion: SCHEMA_VERSION, ...result, account: { number: Number(target), email: account!.email } };
+  if (flags.json) console.log(JSON.stringify(payload));
+  else console.log(result.switched ? `Switched to account ${target}: ${account!.email}` : `Already on account ${target}: ${account!.email}`);
+}
+
+async function autoSwitch(flags: Flags): Promise<never | void> {
+  const settings = await readJson(settingsPath);
+  const threshold = Number(flags.threshold ?? settings.autoswitch?.threshold ?? defaults["autoswitch.threshold"]);
+  const interval = Number(flags.interval ?? settings.autoswitch?.intervalSeconds ?? defaults["autoswitch.intervalSeconds"]);
+  const hysteresis = Number(settings.autoswitch?.hysteresisPct ?? defaults["autoswitch.hysteresisPct"]);
+  const cooldown = Number(settings.autoswitch?.cooldownSeconds ?? defaults["autoswitch.cooldownSeconds"]);
+  const strategy = String(flags.strategy ?? settings.autoswitch?.strategy ?? defaults["autoswitch.strategy"]);
+  if (!Number.isFinite(threshold) || threshold < 1 || threshold > 100) throw new CliError("--threshold must be between 1 and 100", 2);
+  if (!Number.isFinite(interval) || interval < 15 || interval > 3600) throw new CliError("--interval must be between 15 and 3600 seconds", 2);
+  if (!Number.isFinite(hysteresis) || hysteresis < 0 || hysteresis > 50) throw new CliError("autoswitch.hysteresisPct must be between 0 and 50");
+  if (!Number.isFinite(cooldown) || cooldown < 0 || cooldown > 86400) throw new CliError("autoswitch.cooldownSeconds must be between 0 and 86400");
+  if (!["best", "consume-first"].includes(strategy)) throw new CliError("Auto-switch strategy must be best or consume-first");
+  const check = async (): Promise<number> => {
+    const state = await loadState();
+    const current = String(state.activeAccountNumber || "");
+    if (!current) throw new CliError("No active managed account");
+    const wanted = models(flags, settings);
+    const activePct = bindingPct(await usageFor(current, state, true), wanted);
+    if (activePct === null || activePct < threshold) {
+      if (flags.json) console.log(JSON.stringify({ schemaVersion: 1, event: "no-switch", utilization: activePct }));
+      else console.log(`No switch: active utilization is ${activePct === null ? "unavailable" : `${activePct.toFixed(1)}%`}`);
+      return 2;
+    }
+    const autoState = await readJson(autoswitchStatePath);
+    if (autoState.lastSwitchAt && Date.now() - Date.parse(autoState.lastSwitchAt) < cooldown * 1000) {
+      if (flags.json) console.log(JSON.stringify({ schemaVersion: 1, event: "no-switch", reason: "cooldown", utilization: activePct }));
+      else console.log("No switch: cooldown is still active");
+      return 2;
+    }
+    const candidates = state.sequence.map(String).filter((slot) => slot !== current && !state.accounts[slot]?.disabled && state.accounts[slot]?.kind !== "api_key");
+    const values: Array<{ slot: string; pct: number | null; usage: Usage | null }> = [];
+    for (const slot of candidates) {
+      const usage = await usageFor(slot, state, true).catch(() => null);
+      values.push({ slot, pct: bindingPct(usage, wanted), usage });
+    }
+    const viable = values.filter((item) => item.pct !== null && item.pct < threshold && activePct - item.pct >= hysteresis);
+    const best = viable.sort((a, b) => {
+      if (strategy !== "consume-first") return a.pct! - b.pct!;
+      const aReset = Date.parse(a.usage?.sevenDay?.resetsAt || "") || Number.POSITIVE_INFINITY;
+      const bReset = Date.parse(b.usage?.sevenDay?.resetsAt || "") || Number.POSITIVE_INFINITY;
+      return aReset - bReset || a.pct! - b.pct!;
+    })[0];
+    if (!best) {
+      if (flags.json) console.log(JSON.stringify({ schemaVersion: 1, event: "blocked", utilization: activePct }));
+      else console.log("No switch: no account has sufficient headroom");
+      return 3;
+    }
+    if (flags.dryRun) {
+      console.log(`Would switch from account ${current} to ${best.slot}`);
+      return 2;
+    }
+    await activate(best.slot);
+    await writeJson(autoswitchStatePath, { lastSwitchAt: now() });
+    if (flags.json) console.log(JSON.stringify({ schemaVersion: 1, event: "switch", from: Number(current), to: Number(best.slot) }));
+    else console.log(`Auto-switched from account ${current} to ${best.slot}`);
+    return 0;
+  };
+  if (flags.once) {
+    process.exitCode = await check();
+    return;
+  }
+  while (true) {
+    await check().catch((error) => console.error(`cswap auto: ${error.message}`));
+    await Bun.sleep(interval * 1000);
+  }
+}
+
+async function status(flags: Flags): Promise<void> {
+  const state = await loadState();
+  const slot = state.activeAccountNumber ? String(state.activeAccountNumber) : null;
+  const account = slot ? state.accounts[slot] : null;
+  const payload = { schemaVersion: 1, active: account ? { number: Number(slot), email: account.email, alias: account.alias, managed: true } : null, totalManagedAccounts: state.sequence.length };
+  if (flags.json) console.log(JSON.stringify(payload));
+  else console.log(account ? `Account ${slot}: ${account.email}${account.alias ? ` (${account.alias})` : ""}` : "No active managed account");
+}
+
+async function completionAccounts(): Promise<void> {
+  const state = await loadState();
+  for (const slot of state.sequence.map(String)) {
+    const account = state.accounts[slot];
+    if (!account) continue;
+    console.log(`${slot}:${account.email}`);
+    if (account.alias) console.log(`${account.alias}:${account.email} (account ${slot})`);
+  }
+}
+
+async function removeAccount(identifier: string | undefined, flags: Flags): Promise<void> {
+  if (!identifier) throw new CliError("Account identifier is required", 2);
+  await withLock(async () => {
+    const state = await loadState();
+    const slot = resolveAccount(state, identifier);
+    const account = state.accounts[slot]!;
+    if (state.activeAccountNumber === Number(slot) && !flags.force) throw new CliError("Cannot remove the active account without --force");
+    delete state.accounts[slot];
+    state.sequence = state.sequence.filter((value) => value !== Number(slot));
+    if (state.activeAccountNumber === Number(slot)) state.activeAccountNumber = null;
+    await saveState(state);
+    await deleteStoredCredential(slot, account);
+    console.log(`Removed account ${slot}: ${account.email}`);
+  });
+}
+
+async function setDisabled(identifier: string | undefined, disabled: boolean): Promise<void> {
+  if (!identifier) throw new CliError("Account identifier is required", 2);
+  await withLock(async () => {
+    const state = await loadState();
+    const slot = resolveAccount(state, identifier);
+    state.accounts[slot]!.disabled = disabled || undefined;
+    await saveState(state);
+    console.log(`${disabled ? "Disabled" : "Enabled"} account ${slot}`);
+  });
+}
+
+async function aliasAccount(args: string[], flags: Flags): Promise<void> {
+  const state = await loadState();
+  if (!args[0]) {
+    for (const [slot, account] of Object.entries(state.accounts)) if (account.alias) console.log(`${slot}: ${account.alias} -> ${account.email}`);
+    return;
+  }
+  await withLock(async () => {
+    const lockedState = await loadState();
+    const slot = resolveAccount(lockedState, args[0]!);
+    if (flags.unset) delete lockedState.accounts[slot]!.alias;
+    else {
+      if (!args[1]) throw new CliError("Alias value is required", 2);
+      const alias = normalizeAlias(args[1]);
+      if (Object.entries(lockedState.accounts).some(([number, account]) => number !== slot && account.alias === alias)) throw new CliError(`Alias '${alias}' is already in use`);
+      lockedState.accounts[slot]!.alias = alias;
+    }
+    await saveState(lockedState);
+    console.log(flags.unset ? `Removed alias from account ${slot}` : `Account ${slot} alias: ${lockedState.accounts[slot]!.alias}`);
+  });
+}
+
+async function moveAccount(fromArg: string | undefined, toArg: string | undefined): Promise<void> {
+  if (!fromArg || !toArg) throw new CliError("Usage: cswap move <account> <slot>", 2);
+  await withLock(async () => {
+    const state = await loadState();
+    const from = resolveAccount(state, fromArg);
+    const to = canonicalSlot(toArg, "target slot");
+    if (from === to) return;
+    const first = state.accounts[from]!;
+    const second = state.accounts[to];
+    const firstCredential = await readStoredCredential(from, first);
+    const secondCredential = second ? await readStoredCredential(to, second) : null;
+    state.accounts[to] = first;
+    if (second) state.accounts[from] = second;
+    else delete state.accounts[from];
+    try {
+      await writeStoredCredential(to, first, firstCredential);
+      if (second && secondCredential) await writeStoredCredential(from, second, secondCredential);
+      state.sequence = Object.keys(state.accounts).map(Number).sort((a, b) => a - b);
+      if (state.activeAccountNumber === Number(from)) state.activeAccountNumber = Number(to);
+      else if (state.activeAccountNumber === Number(to)) state.activeAccountNumber = Number(from);
+      await saveState(state);
+    } catch (error) {
+      await writeStoredCredential(from, first, firstCredential).catch(() => {});
+      if (second && secondCredential) await writeStoredCredential(to, second, secondCredential).catch(() => {});
+      throw error;
+    }
+    if (!second) await deleteStoredCredential(from, first);
+    else if (isMac && first.email !== second.email) {
+      await deleteStoredCredential(from, first);
+      await deleteStoredCredential(to, second);
+    }
+    console.log(second ? `Swapped accounts ${from} and ${to}` : `Moved account ${from} to ${to}`);
+  });
+}
+
+async function transfer(command: "export" | "import", path: string | undefined, flags: Flags): Promise<void> {
+  if (!path) throw new CliError(`Usage: cswap ${command} <file|->`, 2);
+  if (command === "export") {
+    const state = await loadState();
+    const selected = flags.account ? [resolveAccount(state, String(flags.account))] : state.sequence.map(String);
+    const accounts = [];
+    for (const slot of selected) accounts.push({ slot: Number(slot), account: state.accounts[slot], credentials: await readStoredCredential(slot, state.accounts[slot]!) });
+    const value = `${JSON.stringify({ format: "cswap-ts", version: 1, accounts }, null, 2)}\n`;
+    if (path === "-") process.stdout.write(value);
+    else await atomicWrite(path, value);
+    return;
+  }
+  const raw = path === "-" ? await Bun.stdin.text() : await readFile(path, "utf8");
+  const bundle = JSON.parse(raw);
+  if (bundle.format !== "cswap-ts" || !Array.isArray(bundle.accounts)) throw new CliError("Unsupported export format");
+  await withLock(async () => {
+    const state = await loadState();
+    const prepared = bundle.accounts.map((item: any) => {
+      if (!item.account || typeof item.credentials !== "string") throw new CliError("Export contains an invalid account entry");
+      validateAccount(item.account, "imported account");
+      return { ...item, slot: canonicalSlot(item.slot, "imported slot") };
+    });
+    const written: Array<{ slot: string; account: Account; previous?: { account: Account; credentials: string } }> = [];
+    try {
+      for (const item of prepared) {
+      let slot = item.slot;
+      if (state.accounts[slot] && !flags.force) slot = nextSlot(state);
+      const displaced = state.accounts[slot];
+      const previous = displaced ? { account: displaced, credentials: await readStoredCredential(slot, displaced) } : undefined;
+      state.accounts[slot] = item.account;
+      await writeStoredCredential(slot, item.account, item.credentials);
+      written.push({ slot, account: item.account, previous });
+      if (state.activeAccountNumber === Number(slot)) state.activeAccountNumber = null;
+      }
+      state.sequence = Object.keys(state.accounts).map(Number).sort((a, b) => a - b);
+      await saveState(state);
+    } catch (error) {
+      for (const item of written.reverse()) {
+        if (item.previous) await writeStoredCredential(item.slot, item.previous.account, item.previous.credentials).catch(() => {});
+        else await deleteStoredCredential(item.slot, item.account).catch(() => {});
+      }
+      throw error;
+    }
+    if (isMac) for (const item of written) {
+      if (item.previous && item.previous.account.email !== item.account.email) await deleteStoredCredential(item.slot, item.previous.account);
+    }
+  });
+  console.log(`Imported ${bundle.accounts.length} account(s)`);
+}
+
+async function configCommand(args: string[], flags: Flags): Promise<void> {
+  const settings = await readJson(settingsPath);
+  const command = args[0] || "list";
+  if (command === "path") return console.log(settingsPath);
+  const key = args[1];
+  if (command === "get") {
+    if (!key || !(key in defaults)) throw new CliError(`Unknown setting '${key || ""}'`);
+    const [section, field] = key.split(".");
+    const value = settings[section!]?.[field!] ?? defaults[key];
+    return console.log(flags.json ? JSON.stringify({ key, value }) : String(value ?? "(none)"));
+  }
+  if (command === "set" || command === "unset") {
+    if (!key || !(key in defaults)) throw new CliError(`Unknown setting '${key || ""}'`);
+    const [section, field] = key.split(".");
+    settings[section!] ||= {};
+    if (command === "unset") delete settings[section!][field!];
+    else {
+      if (args[2] === undefined) throw new CliError("Setting value is required", 2);
+      const value = ["threshold", "intervalSeconds", "cooldownSeconds", "hysteresisPct"].includes(field!) ? Number(args[2]) : args[2];
+      if (typeof value === "number" && !Number.isFinite(value)) throw new CliError(`Invalid numeric value '${args[2]}'`);
+      const ranges: Record<string, [number, number]> = {
+        threshold: [1, 100],
+        intervalSeconds: [15, 3600],
+        cooldownSeconds: [0, 86400],
+        hysteresisPct: [0, 50],
+      };
+      const range = ranges[field!];
+      if (range && typeof value === "number" && (value < range[0] || value > range[1])) {
+        throw new CliError(`${key} must be between ${range[0]} and ${range[1]}`);
+      }
+      if (field === "strategy" && !["best", "consume-first"].includes(String(value))) throw new CliError(`${key} must be best or consume-first`);
+      settings[section!][field!] = value;
+    }
+    await writeJson(settingsPath, settings);
+    return;
+  }
+  const values = Object.fromEntries(Object.keys(defaults).map((dotted) => {
+    const [section, field] = dotted.split(".");
+    return [dotted, settings[section!]?.[field!] ?? defaults[dotted]];
+  }));
+  if (flags.json) console.log(JSON.stringify(values));
+  else for (const [name, value] of Object.entries(values)) console.log(`${name} = ${value ?? "(none)"}`);
+}
+
+type Flags = Record<string, string | boolean>;
+function parseArgs(argv: string[]): { command: string; args: string[]; flags: Flags } {
+  const flags: Flags = {};
+  const positional: string[] = [];
+  const valued = new Set(["slot", "alias", "email", "strategy", "model", "threshold", "interval", "account"]);
+  const boolean = new Set(["force", "json", "refresh", "once", "dry-run", "unset", "help", "version"]);
+  for (let index = 0; index < argv.length; index++) {
+    const arg = argv[index]!;
+    if (!arg.startsWith("--")) {
+      positional.push(arg);
+      continue;
+    }
+    const [rawName, inline] = arg.slice(2).split("=", 2);
+    const name = rawName.replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+    if (valued.has(rawName)) {
+      const value = inline ?? argv[++index];
+      if (value === undefined || value.startsWith("--")) throw new CliError(`--${rawName} requires a value`, 2);
+      flags[name] = value;
+    } else if (boolean.has(rawName)) {
+      if (inline !== undefined && inline !== "true" && inline !== "false") throw new CliError(`--${rawName} expects true or false`, 2);
+      flags[name] = inline === undefined || inline === "true";
+    } else throw new CliError(`Unknown option '--${rawName}'`, 2);
+  }
+  return { command: positional.shift() || "list", args: positional, flags };
+}
+
+const HELP = `cswap - switch between Claude Code accounts
+
+Usage:
+  cswap add [--slot N] [--alias NAME] [--force]
+  cswap add-token - [--slot N] [--email EMAIL] [--force]
+  cswap list [--json] [--refresh]
+  cswap status [--json]
+  cswap switch [ACCOUNT] [--strategy best|next-available] [--model NAME] [--force] [--json]
+  cswap auto [--once] [--threshold PCT] [--interval SEC] [--model NAME] [--dry-run] [--json]
+  cswap remove ACCOUNT [--force]
+  cswap disable|enable ACCOUNT
+  cswap alias [ACCOUNT NAME|ACCOUNT --unset]
+  cswap move ACCOUNT SLOT
+  cswap export FILE|- [--account ACCOUNT]
+  cswap import FILE|- [--force]
+  cswap config [list|get|set|unset|path] [KEY] [VALUE] [--json]
+  cswap purge --force
+
+ACCOUNT may be a slot number, email, or alias. add-token reads from stdin. Export files contain plaintext secrets.
+`;
+
+async function main(): Promise<void> {
+  const parsed = parseArgs(process.argv.slice(2));
+  const { command, args, flags } = parsed;
+  if (flags.help) {
+    console.log(HELP);
+    return;
+  }
+  if (flags.version) {
+    console.log(`cswap ${VERSION}`);
+    return;
+  }
+  switch (command) {
+    case "add": return addCurrent(flags);
+    case "add-token": return addToken(args[0], flags);
+    case "list": return listAccounts(flags);
+    case "status": return status(flags);
+    case "switch": return switchAccount(args[0], flags);
+    case "auto": return autoSwitch(flags);
+    case "remove": return removeAccount(args[0], flags);
+    case "disable": return setDisabled(args[0], true);
+    case "enable": return setDisabled(args[0], false);
+    case "alias": return aliasAccount(args, flags);
+    case "move": return moveAccount(args[0], args[1]);
+    case "export": return transfer("export", args[0], flags);
+    case "import": return transfer("import", args[0], flags);
+    case "config": return configCommand(args, flags);
+    case "completion-accounts": return completionAccounts();
+    case "purge":
+      if (!flags.force) throw new CliError("Pass --force to delete all cswap data");
+      if (isMac) {
+        const state = await loadState();
+        for (const [slot, account] of Object.entries(state.accounts)) await deleteStoredCredential(slot, account);
+      }
+      await rm(dataRoot, { recursive: true, force: true });
+      console.log(`Removed ${dataRoot}`);
+      return;
+    case "help": case "--help": case "-h": console.log(HELP); return;
+    case "version": case "--version": case "-v": console.log(`cswap ${VERSION}`); return;
+    default: throw new CliError(`Unknown command '${command}'\n\n${HELP}`, 2);
+  }
+}
+
+main().catch((error: any) => {
+  const json = process.argv.includes("--json");
+  if (json) console.log(JSON.stringify({ schemaVersion: SCHEMA_VERSION, error: { message: error?.message || String(error) } }));
+  else console.error(`cswap: ${error?.message || error}`);
+  process.exit(error instanceof CliError ? error.exitCode : 1);
+});

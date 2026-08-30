@@ -23,6 +23,7 @@ alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
 alias ccr="caffeinate -i claude --append-system-prompt-file ~/.claude/system-prompt-append.txt remote-control --spawn=same-dir"
 alias cdd="codex --dangerously-bypass-approvals-and-sandbox"
 alias ccs="ccsession --exclude-reviewer --since 14d -- --dangerously-skip-permissions --teammate-mode in-process"
+alias cs="cswap"
 alias dlm="yt-dlp -x --audio-format mp3"
 alias ghf='cd $(ghq root)/$(ghq list | fzf)'
 alias rai='dinii-internal__review-agent-integrator'
@@ -59,6 +60,7 @@ eval "$(mise activate zsh)"
 # Source custom functions
 source "$HOME/.config/zsh/zoxide.zsh"
 source "$HOME/.config/zsh/workspace/workspace.zsh"
+source "$HOME/.config/zsh/cswap.zsh"
 
 source "$XDG_CONFIG_HOME/op/plugins.sh"
 
@@ -71,3 +73,6 @@ export PATH="$HOME/.bun/bin:$PATH"
 # See https://dystroy.org/broot/install-br/
 source /Users/yuto_ogino/.config/broot/launcher/bash/br
 
+
+# bun completions
+[ -s "/Users/yuto_ogino/.bun/_bun" ] && source "/Users/yuto_ogino/.bun/_bun"
