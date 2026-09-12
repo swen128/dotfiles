@@ -9,3 +9,7 @@ home/dot_config/karabiner/
 .config/opencode/plugins/monitor-tool/monitor.test.ts
 .config/opencode/plugins/monitor-tool/bun.lock
 .config/opencode/plugins/monitor-tool/node_modules
+
+.local/share/raycast/ai-usage/node_modules
+.local/share/raycast/ai-usage/dist
+.local/share/raycast/ai-usage/raycast-env.d.ts
