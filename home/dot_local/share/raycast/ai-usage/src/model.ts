@@ -72,8 +72,10 @@ export function parseCodex(value: unknown): Limit[] {
   if (!Object.keys(buckets).length && data.rateLimits) buckets.codex = data.rateLimits;
   if (!Object.keys(buckets).length)
     throw new Error("No Codex limits returned. Sign in with ChatGPT using codex login.");
+  const entries = Object.entries(buckets);
+  const accountWide = entries.filter(([id]) => id === "codex");
   const limits: Limit[] = [];
-  for (const [id, raw] of Object.entries(buckets)) {
+  for (const [id, raw] of accountWide.length ? accountWide : entries) {
     const bucket = record(raw);
     for (const slot of ["primary", "secondary"]) {
       const item = record(bucket[slot]);
