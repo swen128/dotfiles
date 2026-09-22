@@ -13,12 +13,11 @@ If the project type is not apparent from the conversation context, ask the user 
 1. Run `bun init` to scaffold the project
 2. Install dev dependencies:
    ```
-   bun add -d @biomejs/biome eslint @eslint/js @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-eslint-comments eslint-plugin-functional eslint-plugin-unicorn husky knip
+   bun add -d @biomejs/biome eslint @eslint/js @typescript-eslint/eslint-plugin @typescript-eslint/parser eslint-plugin-eslint-comments eslint-plugin-functional eslint-plugin-unicorn knip
    ```
-4. Create all config files listed below (adapt entry points and globals based on the project type)
-5. Run `bunx husky init` then write the pre-commit hook
-6. Add the scripts to `package.json`
-7. Run `bun check` to verify everything works
+3. Create all config files listed below (adapt entry points and globals based on the project type)
+4. Add the scripts to `package.json`
+5. Run `bun check` to verify everything works
 
 ## package.json scripts
 
@@ -30,8 +29,7 @@ If the project type is not apparent from the conversation context, ask the user 
     "format": "biome format --write .",
     "format:check": "biome format .",
     "knip": "knip",
-    "check": "bun format:check && bun typecheck && bun lint && bun knip",
-    "prepare": "husky"
+    "check": "bun format:check && bun typecheck && bun lint && bun knip"
   }
 }
 ```
@@ -197,17 +195,8 @@ Adapt `entry` and `project` based on the project type.
   },
   "biome": {
     "config": ["biome.json"]
-  },
-  "husky": {
-    "config": [".husky/pre-commit"]
   }
 }
-```
-
-## .husky/pre-commit
-
-```bash
-bun format && bun check
 ```
 
 ## Adaptations by project type
