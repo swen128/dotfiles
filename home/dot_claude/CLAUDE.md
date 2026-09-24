@@ -10,3 +10,8 @@ Release the worktree when a PR is marked ready for review, or the task is droppe
 
 - Never use horizontal lines between sections
 - Never write section numbers in headings
+
+## Rule
+
+When a step doesn't need my input, keep going.
+Stop and ask only before destructive operations, like modifying production env/data.
