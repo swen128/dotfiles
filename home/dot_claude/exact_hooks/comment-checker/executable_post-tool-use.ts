@@ -205,7 +205,6 @@ function buildMessage(filePath: string, comments: DetectedComment[]): string {
 - "Existing pattern" won't justify adding new ones.
 
 Remove comments BY DEFAULT.
-If you ABSOLUTELY need to add/update any comment, you MUST write report explaining ALL the incidents and reasons following the \`/artifact-design\` skill, after the implementation has been finished.
 
 Detected comments/docstrings:
 <comments file="${filePath}">
