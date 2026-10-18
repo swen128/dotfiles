@@ -4,6 +4,7 @@
   "title": "AI Usage",
   "description": "Claude and Codex subscription usage and reset times",
   "icon": "icon.png",
+  "author": "PND",
   "license": "MIT",
   "categories": [
     "Developer Tools"
