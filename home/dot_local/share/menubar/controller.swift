@@ -135,7 +135,7 @@ final class StatusBarController: NSObject {
         usageStatusItem.button?.imagePosition = .imageLeading
         usageStatusItem.button?.title = " …"
         codexStatusItem.menu = codexMenu
-        codexStatusItem.button?.image = loadIcon("codex.svg", height: 13, template: true)
+        codexStatusItem.button?.image = loadIcon("codex-color.svg", height: 13, template: false)
         codexStatusItem.button?.imagePosition = .imageLeading
         codexStatusItem.button?.title = " …"
         prStatusItem.menu = prMenu
