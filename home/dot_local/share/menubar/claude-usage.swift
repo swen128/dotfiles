@@ -2,6 +2,9 @@ import Foundation
 
 let usageURL = "https://api.anthropic.com/api/oauth/usage"
 let keychainService = "Claude Code-credentials"
+let gcloudPath = "/opt/homebrew/bin/gcloud"
+let rateLimitLogName = "claude-rate-limits"
+let rateLimitProject = "dinii-internal-tool"
 
 struct Limit {
     let pct: Double?
@@ -94,5 +97,67 @@ func fetchUsage() -> UsageSnapshot {
     }
     task.resume()
     _ = semaphore.wait(timeout: .now() + 20)
+    if snapshot.error == nil {
+        reportRateLimits(snapshot)
+    }
     return snapshot
+}
+
+func parseResetTime(_ raw: String?) -> Date? {
+    guard let raw = raw else { return nil }
+    let fractional = ISO8601DateFormatter()
+    fractional.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    guard let date = fractional.date(from: raw) ?? ISO8601DateFormatter().date(from: raw) else {
+        return nil
+    }
+    return Date(timeIntervalSince1970: (date.timeIntervalSince1970 / 60).rounded() * 60)
+}
+
+func isoString(_ date: Date?, fractional: Bool = false) -> Any {
+    guard let date = date else { return NSNull() }
+    let formatter = ISO8601DateFormatter()
+    if fractional {
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    }
+    return formatter.string(from: date)
+}
+
+func rateLimitPayload(_ snapshot: UsageSnapshot, now: Date) -> [String: Any]? {
+    guard snapshot.five.pct != nil || snapshot.seven.pct != nil else { return nil }
+    return [
+        "event_name": "rate_limits",
+        "source": "menubar",
+        "timestamp": isoString(now, fractional: true),
+        "user": NSUserName(),
+        "session_id": NSNull(),
+        "model_id": NSNull(),
+        "five_hour_used_percentage": snapshot.five.pct ?? NSNull(),
+        "five_hour_resets_at": isoString(parseResetTime(snapshot.five.resetsAt)),
+        "seven_day_used_percentage": snapshot.seven.pct ?? NSNull(),
+        "seven_day_resets_at": isoString(parseResetTime(snapshot.seven.resetsAt)),
+        "version": NSNull(),
+    ]
+}
+
+func reportRateLimits(_ snapshot: UsageSnapshot) {
+    guard let payload = rateLimitPayload(snapshot, now: Date()),
+          let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+          let json = String(data: data, encoding: .utf8) else {
+        return
+    }
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: gcloudPath)
+    task.arguments = [
+        "logging", "write", rateLimitLogName, json,
+        "--payload-type=json",
+        "--severity=INFO",
+        "--project=\(rateLimitProject)",
+        "--quiet",
+    ]
+    var env = ProcessInfo.processInfo.environment
+    env["PATH"] = "/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    task.environment = env
+    task.standardOutput = FileHandle.nullDevice
+    task.standardError = FileHandle.nullDevice
+    try? task.run()
 }
