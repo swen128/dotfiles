@@ -122,6 +122,8 @@ func loadIcon(_ name: String, height: CGFloat, template: Bool) -> NSImage? {
 final class StatusBarController: NSObject {
     let usageStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let usageMenu = NSMenu()
+    let codexStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    let codexMenu = NSMenu()
     let prStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let prMenu = NSMenu()
     var timer: Timer?
@@ -132,6 +134,10 @@ final class StatusBarController: NSObject {
         usageStatusItem.button?.image = loadIcon("claudecode-color.svg", height: 13, template: false)
         usageStatusItem.button?.imagePosition = .imageLeading
         usageStatusItem.button?.title = " …"
+        codexStatusItem.menu = codexMenu
+        codexStatusItem.button?.image = loadIcon("codex.svg", height: 13, template: true)
+        codexStatusItem.button?.imagePosition = .imageLeading
+        codexStatusItem.button?.title = " …"
         prStatusItem.menu = prMenu
         prStatusItem.button?.image = prIcon(height: 13)
         prStatusItem.button?.imagePosition = .imageLeading
@@ -145,11 +151,15 @@ final class StatusBarController: NSObject {
     @objc func refresh() {
         DispatchQueue.global(qos: .utility).async {
             let snap = fetchUsage()
+            DispatchQueue.main.async { self.renderUsage(snap) }
+        }
+        DispatchQueue.global(qos: .utility).async {
+            let codex = fetchCodexUsage()
+            DispatchQueue.main.async { self.renderCodex(codex) }
+        }
+        DispatchQueue.global(qos: .utility).async {
             let prs = fetchPRs()
-            DispatchQueue.main.async {
-                self.renderUsage(snap)
-                self.renderPRs(prs)
-            }
+            DispatchQueue.main.async { self.renderPRs(prs) }
         }
     }
 
@@ -214,6 +224,46 @@ final class StatusBarController: NSObject {
         appendFooter(usageMenu, withQuit: true)
     }
 
+    func renderCodex(_ snap: CodexSnapshot) {
+        codexMenu.removeAllItems()
+
+        if let err = snap.error {
+            codexStatusItem.button?.title = " ⚠"
+            codexMenu.addItem(detailItem("⚠️  \(err)", color: .secondaryLabelColor))
+            codexMenu.addItem(detailItem("Run `codex login` and sign in with ChatGPT", color: .secondaryLabelColor))
+        } else {
+            let headline = snap.seven ?? snap.five ?? snap.others.first?.limit
+            let pct = headline?.pct ?? 0
+            let left = remainingText(headline?.resetsAt)
+            let title = String(format: " %.0f%%%@", pct, left.isEmpty ? "" : " (\(left))")
+            codexStatusItem.button?.attributedTitle = NSAttributedString(string: title, attributes: [
+                .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
+                .foregroundColor: severityColor(pct),
+            ])
+
+            if let five = snap.five {
+                let p = five.pct ?? 0
+                codexMenu.addItem(detailItem(String(format: "5-hour      %3.0f%%   resets in %@", p, remainingText(five.resetsAt)), color: severityColor(p)))
+            }
+            if let seven = snap.seven {
+                let p = seven.pct ?? 0
+                codexMenu.addItem(detailItem(String(format: "7-day       %3.0f%%   resets in %@  (%@)", p, remainingText(seven.resetsAt), clockText(seven.resetsAt)), color: severityColor(p)))
+            }
+            for window in snap.others {
+                let p = window.limit.pct ?? 0
+                codexMenu.addItem(detailItem(String(format: "  %@  %3.0f%%   resets in %@", window.label, p, remainingText(window.limit.resetsAt)), color: .secondaryLabelColor))
+            }
+            if let plan = snap.plan {
+                codexMenu.addItem(detailItem("Plan  \(plan)", color: .secondaryLabelColor))
+            }
+            let dashItem = NSMenuItem(title: "Usage dashboard", action: #selector(openCodexDashboard), keyEquivalent: "")
+            dashItem.target = self
+            codexMenu.addItem(NSMenuItem.separator())
+            codexMenu.addItem(dashItem)
+        }
+        appendFooter(codexMenu, withQuit: false)
+    }
+
     func renderPRs(_ result: PRResult) {
         prMenu.removeAllItems()
 
@@ -251,6 +301,10 @@ final class StatusBarController: NSObject {
 
     @objc func openDashboard() {
         NSWorkspace.shared.open(URL(string: "https://claude.ai/settings/usage")!)
+    }
+
+    @objc func openCodexDashboard() {
+        NSWorkspace.shared.open(URL(string: "https://chatgpt.com/codex/settings/usage")!)
     }
 
     @objc func quit() {

@@ -140,15 +140,19 @@ func rateLimitPayload(_ snapshot: UsageSnapshot, now: Date) -> [String: Any]? {
 }
 
 func reportRateLimits(_ snapshot: UsageSnapshot) {
-    guard let payload = rateLimitPayload(snapshot, now: Date()),
-          let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
+    guard let payload = rateLimitPayload(snapshot, now: Date()) else { return }
+    writeRateLimitLog(rateLimitLogName, payload)
+}
+
+func writeRateLimitLog(_ logName: String, _ payload: [String: Any]) {
+    guard let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]),
           let json = String(data: data, encoding: .utf8) else {
         return
     }
     let task = Process()
     task.executableURL = URL(fileURLWithPath: gcloudPath)
     task.arguments = [
-        "logging", "write", rateLimitLogName, json,
+        "logging", "write", logName, json,
         "--payload-type=json",
         "--severity=INFO",
         "--project=\(rateLimitProject)",
