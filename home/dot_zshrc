@@ -50,12 +50,13 @@ alias idea="webstorm"
 export PATH="$PATH:$HOME/programs-personal/depot_tools"
 
 # Install autocompletion for ast-grep.
-eval "$(sg completions)"
+eval "$(ast-grep completions zsh)"
 
 eval "$(zoxide init zsh)"
 
 eval "$(oh-my-posh init zsh --config $XDG_CONFIG_HOME/oh-my-posh/config.json)"
 
+export MISE_ACTIVATE_AGGRESSIVE=1
 eval "$(mise activate zsh)"
 
 # Source custom functions
@@ -66,8 +67,7 @@ source "$HOME/.config/zsh/cswap.zsh"
 source "$XDG_CONFIG_HOME/op/plugins.sh"
 
 # bun
-export PATH="$HOME/.bun/bin:$PATH"
-[ -s "$HOME/.bun/_bun" ] && source "$HOME/.bun/_bun"
+path=("${(@)path:#$HOME/.bun/bin}" "$HOME/.bun/bin")
 
 [ -f "$HOME/.ghcup/env" ] && . "$HOME/.ghcup/env" # ghcup-env
 
@@ -76,4 +76,8 @@ source /Users/yuto_ogino/.config/broot/launcher/bash/br
 
 
 # bun completions
-[ -s "/Users/yuto_ogino/.bun/_bun" ] && source "/Users/yuto_ogino/.bun/_bun"
+
+# >>> termium >>>
+case ":$PATH:" in *:'/Users/yuto_ogino/.local/bin':*) ;; *) export PATH='/Users/yuto_ogino/.local/bin':"$PATH" ;; esac
+# <<< termium <<<
+export PATH=$PATH:$HOME/.maestro/bin
