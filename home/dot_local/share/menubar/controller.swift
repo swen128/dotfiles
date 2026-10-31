@@ -127,6 +127,9 @@ final class StatusBarController: NSObject {
     let prStatusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     let prMenu = NSMenu()
     var timer: Timer?
+    let usageQueue = DispatchQueue(label: "menubar.claude-usage", qos: .utility)
+    var lastUsage: UsageSnapshot?
+    var lastUsageAt: Date?
 
     override init() {
         super.init()
@@ -149,7 +152,7 @@ final class StatusBarController: NSObject {
     }
 
     @objc func refresh() {
-        DispatchQueue.global(qos: .utility).async {
+        usageQueue.async {
             let snap = fetchUsage()
             DispatchQueue.main.async { self.renderUsage(snap) }
         }
@@ -190,38 +193,61 @@ final class StatusBarController: NSObject {
     func renderUsage(_ snap: UsageSnapshot) {
         usageMenu.removeAllItems()
 
-        if let err = snap.error {
-            usageStatusItem.button?.title = " ⚠"
-            usageMenu.addItem(detailItem("⚠️  \(err)", color: .secondaryLabelColor))
-            usageMenu.addItem(detailItem("Open Claude Code and run /usage to re-auth", color: .secondaryLabelColor))
-        } else {
-            let p7 = snap.seven.pct ?? 0
-            let suffix7 = remainingText(snap.seven.resetsAt).isEmpty ? "" : " (\(remainingText(snap.seven.resetsAt)))"
-            let title = String(format: " %.0f%%%@", p7, suffix7)
-            let attrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
-                .foregroundColor: severityColor(p7),
-            ]
-            usageStatusItem.button?.attributedTitle = NSAttributedString(string: title, attributes: attrs)
+        if snap.error == nil {
+            lastUsage = snap
+            lastUsageAt = Date()
+        }
+        let stamp = DateFormatter()
+        stamp.dateFormat = "HH:mm"
 
-            let p5 = snap.five.pct ?? 0
-            usageMenu.addItem(detailItem(String(format: "5-hour      %3.0f%%   resets in %@", p5, remainingText(snap.five.resetsAt)), color: severityColor(p5)))
-            usageMenu.addItem(detailItem(String(format: "7-day (all) %3.0f%%   resets in %@  (%@)", p7, remainingText(snap.seven.resetsAt), clockText(snap.seven.resetsAt)), color: severityColor(p7)))
-            if let ps = snap.sonnet.pct {
-                usageMenu.addItem(detailItem(String(format: "  7-day Sonnet %3.0f%%", ps), color: .secondaryLabelColor))
+        if let err = snap.error {
+            var message = "⚠️  \(err)"
+            if let retry = snap.retryAt {
+                message += " · retrying at \(stamp.string(from: retry))"
             }
-            if let po = snap.opus.pct {
-                usageMenu.addItem(detailItem(String(format: "  7-day Opus   %3.0f%%", po), color: .secondaryLabelColor))
+            usageMenu.addItem(detailItem(message, color: .secondaryLabelColor))
+            if let hint = snap.hint {
+                usageMenu.addItem(detailItem(hint, color: .secondaryLabelColor))
             }
-            if let extra = snap.extra {
-                usageMenu.addItem(detailItem(extra, color: .secondaryLabelColor))
+            if let last = lastUsage, let at = lastUsageAt {
+                usageMenu.addItem(detailItem("Showing values from \(stamp.string(from: at))", color: .secondaryLabelColor))
+                usageMenu.addItem(NSMenuItem.separator())
+                renderUsageValues(last, stale: true)
+            } else {
+                usageStatusItem.button?.title = " ⚠"
             }
-            let dashItem = NSMenuItem(title: "Usage dashboard", action: #selector(openDashboard), keyEquivalent: "")
-            dashItem.target = self
-            usageMenu.addItem(NSMenuItem.separator())
-            usageMenu.addItem(dashItem)
+        } else {
+            renderUsageValues(snap, stale: false)
         }
         appendFooter(usageMenu, withQuit: true)
+    }
+
+    func renderUsageValues(_ snap: UsageSnapshot, stale: Bool) {
+        let p7 = snap.seven.pct ?? 0
+        let suffix7 = remainingText(snap.seven.resetsAt).isEmpty ? "" : " (\(remainingText(snap.seven.resetsAt)))"
+        let title = String(format: " %.0f%%%@%@", p7, suffix7, stale ? " ⚠" : "")
+        let attrs: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium),
+            .foregroundColor: stale ? NSColor.secondaryLabelColor : severityColor(p7),
+        ]
+        usageStatusItem.button?.attributedTitle = NSAttributedString(string: title, attributes: attrs)
+
+        let p5 = snap.five.pct ?? 0
+        usageMenu.addItem(detailItem(String(format: "5-hour      %3.0f%%   resets in %@", p5, remainingText(snap.five.resetsAt)), color: severityColor(p5)))
+        usageMenu.addItem(detailItem(String(format: "7-day (all) %3.0f%%   resets in %@  (%@)", p7, remainingText(snap.seven.resetsAt), clockText(snap.seven.resetsAt)), color: severityColor(p7)))
+        if let ps = snap.sonnet.pct {
+            usageMenu.addItem(detailItem(String(format: "  7-day Sonnet %3.0f%%", ps), color: .secondaryLabelColor))
+        }
+        if let po = snap.opus.pct {
+            usageMenu.addItem(detailItem(String(format: "  7-day Opus   %3.0f%%", po), color: .secondaryLabelColor))
+        }
+        if let extra = snap.extra {
+            usageMenu.addItem(detailItem(extra, color: .secondaryLabelColor))
+        }
+        let dashItem = NSMenuItem(title: "Usage dashboard", action: #selector(openDashboard), keyEquivalent: "")
+        dashItem.target = self
+        usageMenu.addItem(NSMenuItem.separator())
+        usageMenu.addItem(dashItem)
     }
 
     func renderCodex(_ snap: CodexSnapshot) {
