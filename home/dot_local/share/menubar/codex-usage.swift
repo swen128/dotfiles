@@ -1,6 +1,6 @@
 import Foundation
 
-let codexRateLimitLogName = "codex-rate-limits"
+let codexRateLimitLogName = "dinii-kpi-events"
 
 struct CodexWindow {
     let label: String
@@ -177,25 +177,60 @@ func fetchCodexUsage() -> CodexSnapshot {
     }
 }
 
-func codexRateLimitPayload(_ snapshot: CodexSnapshot, now: Date) -> [String: Any]? {
-    guard snapshot.five?.pct != nil || snapshot.seven?.pct != nil else { return nil }
+func codexUserEmail() -> String? {
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    if let cached = try? String(contentsOfFile: "\(home)/.claude/cache/dinii-kpi-user-email.txt", encoding: .utf8)
+        .trimmingCharacters(in: .whitespacesAndNewlines), !cached.isEmpty {
+        return cached
+    }
+    let task = Process()
+    task.executableURL = URL(fileURLWithPath: gcloudPath)
+    task.arguments = ["config", "get-value", "account"]
+    let out = Pipe()
+    task.standardOutput = out
+    task.standardError = FileHandle.nullDevice
+    guard (try? task.run()) != nil else { return nil }
+    task.waitUntilExit()
+    let email = String(data: out.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8)?
+        .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    return email.isEmpty || email == "(unset)" ? nil : email
+}
+
+func codexRateLimitPayload(_ snapshot: CodexSnapshot, email: String) -> [String: Any]? {
+    guard snapshot.five?.pct != nil || snapshot.seven?.pct != nil,
+          let messageData = try? JSONSerialization.data(withJSONObject: [
+              "total_tokens": 0,
+              "cached_input_tokens": 0,
+              "input_tokens": 0,
+              "output_tokens": 0,
+              "reasoning_output_tokens": 0,
+              "originator": "menubar",
+              "rate_limit_used_percent": snapshot.seven?.pct ?? NSNull(),
+              "rate_limit_window_minutes": snapshot.seven?.pct == nil ? NSNull() : 10080,
+              "rate_limit_plan_type": snapshot.plan ?? NSNull(),
+              "rate_limit_resets_at": codexEpoch(snapshot.seven?.resetsAt),
+              "rate_limit_secondary_used_percent": snapshot.five?.pct ?? NSNull(),
+              "rate_limit_secondary_window_minutes": snapshot.five?.pct == nil ? NSNull() : 300,
+              "rate_limit_secondary_resets_at": codexEpoch(snapshot.five?.resetsAt),
+          ] as [String: Any], options: [.sortedKeys]),
+          let message = String(data: messageData, encoding: .utf8) else { return nil }
     return [
-        "event_name": "rate_limits",
+        "event_name": "codex_session",
         "source": "menubar",
-        "timestamp": isoString(now, fractional: true),
-        "user": NSUserName(),
-        "session_id": NSNull(),
-        "model_id": NSNull(),
-        "plan_type": snapshot.plan ?? NSNull(),
-        "five_hour_used_percentage": snapshot.five?.pct ?? NSNull(),
-        "five_hour_resets_at": isoString(parseResetTime(snapshot.five?.resetsAt)),
-        "seven_day_used_percentage": snapshot.seven?.pct ?? NSNull(),
-        "seven_day_resets_at": isoString(parseResetTime(snapshot.seven?.resetsAt)),
-        "version": NSNull(),
+        "user_email": email,
+        "user_local": NSUserName(),
+        "collector_version": "menubar",
+        "message": message,
     ]
 }
 
+func codexEpoch(_ resetsAt: String?) -> Any {
+    guard let date = parseResetTime(resetsAt) else { return NSNull() }
+    return Int(date.timeIntervalSince1970)
+}
+
 func reportCodexRateLimits(_ snapshot: CodexSnapshot) {
-    guard let payload = codexRateLimitPayload(snapshot, now: Date()) else { return }
+    guard let email = codexUserEmail(),
+          let payload = codexRateLimitPayload(snapshot, email: email) else { return }
     writeRateLimitLog(codexRateLimitLogName, payload)
 }
