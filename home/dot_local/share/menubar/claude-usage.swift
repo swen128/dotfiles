@@ -91,7 +91,6 @@ func readCredential() -> Credential? {
 func writeCredential(_ raw: String, account: String) -> Bool {
     let hex = Data(raw.utf8).map { String(format: "%02x", $0) }.joined()
     let quote = { (s: String) in "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\"" }
-    // Pass the secret on stdin so it never appears in the process list.
     let command = "add-generic-password -U -a \(quote(account)) -s \(quote(keychainService)) -X \(hex)\n"
     return runSecurity(["-i"], stdin: command).status == 0
 }
@@ -113,10 +112,6 @@ enum RefreshOutcome {
     case failed
 }
 
-/// Exchange the refresh token for a new access token, the way Claude Code does,
-/// and write it back to Claude Code's keychain item. Refresh tokens rotate, so the
-/// write only happens if nobody else (e.g. a running Claude Code) has replaced the
-/// credential since we read it; otherwise we adopt theirs.
 func refreshCredential(_ cred: Credential) -> RefreshOutcome {
     guard let refreshToken = cred.refreshToken else { return .rejected }
     var request = URLRequest(url: URL(string: oauthTokenURL)!)
@@ -170,8 +165,6 @@ func emptyUsage(_ error: String, hint: String? = nil, retryAt: Date? = nil) -> U
                   extra: nil, error: error, hint: hint, retryAt: retryAt)
 }
 
-/// The usage endpoint rate-limits per account and answers 429 with Retry-After.
-/// Polling during that window gains nothing, so remember it and stay quiet.
 var usageBlockedUntil: Date?
 
 func retryAfter(_ http: HTTPURLResponse) -> Date {
@@ -190,8 +183,6 @@ func requestUsage(_ token: String) -> (HTTPURLResponse?, Data?) {
     return syncRequest(request)
 }
 
-/// Call only from one serial queue: it reads and writes `usageBlockedUntil`
-/// and may rotate the shared refresh token.
 func fetchUsage() -> UsageSnapshot {
     if let until = usageBlockedUntil, until > Date() {
         return emptyUsage("rate limited", retryAt: until)
