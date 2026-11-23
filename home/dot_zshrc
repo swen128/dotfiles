@@ -15,18 +15,14 @@ export VI_MODE_SET_CURSOR=true
 alias c=pbcopy
 alias python=python3
 alias lg=lazygit
-alias sb="tmux capture-pane -pS -"
 alias ta="tmux attach"
 alias ls="eza -lh"
-alias oc="opencode"
-alias ccd="claude --dangerously-skip-permissions --teammate-mode in-process"
-alias ccr="caffeinate -i claude --append-system-prompt-file ~/.claude/system-prompt-append.txt remote-control --spawn=same-dir"
+alias ccd="claude --dangerously-skip-permissions"
 alias cdd="codex --dangerously-bypass-approvals-and-sandbox"
-alias ccs="ccsession --exclude-reviewer --since 14d -- --dangerously-skip-permissions --teammate-mode in-process"
+alias ccs="ccsession --exclude-reviewer --since 14d -- --dangerously-skip-permissions"
 alias cs="cswap"
 alias dlm="yt-dlp -x --audio-format mp3"
 alias ghf='cd $(ghq root)/$(ghq list | fzf)'
-alias rai='dinii-internal__review-agent-integrator'
 alias u=unleash
 
 # Yazi shell wrapper - cd to directory on exit
@@ -43,14 +39,6 @@ export PATH="$PATH:$HOME/bin:$HOME/.local/bin"
 # Add Go binaries to PATH.
 export GOPATH=$HOME/go
 export PATH="$GOPATH/bin:$PATH"
-
-export PATH="$PATH:/Applications/WebStorm.app/Contents/MacOS"
-alias idea="webstorm"
-
-export PATH="$PATH:$HOME/programs-personal/depot_tools"
-
-# Install autocompletion for ast-grep.
-eval "$(ast-grep completions zsh)"
 
 eval "$(zoxide init zsh)"
 
@@ -74,10 +62,4 @@ path=("${(@)path:#$HOME/.bun/bin}" "$HOME/.bun/bin")
 # See https://dystroy.org/broot/install-br/
 source /Users/yuto_ogino/.config/broot/launcher/bash/br
 
-
-# bun completions
-
-# >>> termium >>>
-case ":$PATH:" in *:'/Users/yuto_ogino/.local/bin':*) ;; *) export PATH='/Users/yuto_ogino/.local/bin':"$PATH" ;; esac
-# <<< termium <<<
 export PATH=$PATH:$HOME/.maestro/bin
