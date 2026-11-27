@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
 import { promisify } from "node:util";
-import { parseClaude, parseCodex, record } from "./model";
+import { parseClaude, parseCodex, parseGemini, record } from "./model";
 
 export async function fetchClaude() {
   let token: unknown;
@@ -117,4 +117,54 @@ export function readCodexLimits(executable: string, timeoutMs = 20000): Promise<
 }
 export async function fetchCodex(path?: string) {
   return parseCodex(await readCodexLimits(await codexExecutable(path)));
+}
+
+async function agyExecutable(configured?: string): Promise<string> {
+  const candidates = configured?.trim()
+    ? [configured.replace(/^~\//, `${homedir()}/`)]
+    : [
+        join(homedir(), ".local/bin/agy"),
+        join(homedir(), ".gemini/antigravity-cli/bin/agy"),
+        "/opt/homebrew/bin/agy",
+        "/usr/local/bin/agy",
+        join(homedir(), ".local/share/mise/shims/agy"),
+        ...(process.env.PATH ?? "")
+          .split(":")
+          .filter(Boolean)
+          .map((directory) => join(directory, "agy")),
+      ];
+  for (const candidate of candidates) {
+    try {
+      await access(candidate, constants.X_OK);
+      return candidate;
+    } catch {
+      /* Try next installation. */
+    }
+  }
+  throw new Error("Antigravity CLI (agy) not found. Set its absolute path in extension preferences.");
+}
+
+export async function readGeminiLimits(executable: string, timeoutMs = 30000): Promise<unknown> {
+  let stdout: string;
+  try {
+    ({ stdout } = await promisify(execFile)(executable, ["-p", "/usage", "--output-format", "json"], {
+      cwd: homedir(),
+      timeout: timeoutMs,
+      maxBuffer: 1024 * 1024,
+    }));
+  } catch (error) {
+    if (error && typeof error === "object" && "killed" in error && error.killed) {
+      throw new Error("Gemini usage request timed out.");
+    }
+    throw new Error("Could not read Gemini usage. Sign in with agy and check the executable preference.");
+  }
+  try {
+    return JSON.parse(stdout);
+  } catch {
+    throw new Error("Unrecognized Gemini usage output. Update agy and sign in.");
+  }
+}
+
+export async function fetchGemini(path?: string) {
+  return parseGemini(await readGeminiLimits(await agyExecutable(path)));
 }

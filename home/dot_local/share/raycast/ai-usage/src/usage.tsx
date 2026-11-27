@@ -20,7 +20,7 @@ export default function Usage() {
   const { data, isLoading, revalidate } = useUsage();
 
   return (
-    <List isLoading={isLoading} searchBarPlaceholder="Filter Claude, Fable, or Codex limits">
+    <List isLoading={isLoading} searchBarPlaceholder="Filter Claude, Fable, Codex, or Gemini limits">
       {data?.map((provider) => {
         const timestamp = provider.updatedAt && new Date(provider.updatedAt).toLocaleString();
         const status = timestamp ? `${provider.error ? "Saved" : "Updated"} ${timestamp}` : undefined;

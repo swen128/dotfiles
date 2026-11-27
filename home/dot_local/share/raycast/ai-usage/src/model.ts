@@ -5,7 +5,7 @@ export type Limit = {
   resetsAt?: string;
 };
 export type Provider = {
-  name: "Claude" | "Codex";
+  name: "Claude" | "Codex" | "Gemini";
   limits: Limit[];
   updatedAt?: string;
   error?: string;
@@ -21,7 +21,7 @@ function percent(value: unknown): number | undefined {
 function date(value: unknown): string | undefined {
   const parsed =
     typeof value === "string" ? new Date(value) : typeof value === "number" ? new Date(value * 1000) : undefined;
-  return parsed && Number.isFinite(parsed.getTime()) ? parsed.toISOString() : undefined;
+  return parsed && Number.isFinite(parsed.getTime()) && parsed.getTime() > 0 ? parsed.toISOString() : undefined;
 }
 export function parseClaude(value: unknown): Limit[] {
   const data = record(value);
@@ -92,6 +92,57 @@ export function parseCodex(value: unknown): Limit[] {
       });
     }
   }
+  return limits;
+}
+function geminiWindowOrder(window: unknown): number {
+  if (window === "5h") return 0;
+  if (window === "weekly") return 1;
+  return 2;
+}
+export function parseGemini(value: unknown): Limit[] {
+  const root = record(value);
+  if (typeof root.status === "string" && root.status !== "SUCCESS") {
+    const message = typeof root.response === "string" && root.response.trim() ? root.response.trim() : undefined;
+    throw new Error(message ?? "Antigravity usage command failed.");
+  }
+  const commandData = record(record(root.command).data);
+  const groups = Array.isArray(commandData.groups) ? commandData.groups : root.groups;
+  if (!Array.isArray(groups) || !groups.length) {
+    throw new Error("Unrecognized Gemini usage response. Sign in with agy.");
+  }
+  const geminiGroups = groups.filter((raw) => /gemini/i.test(String(record(raw).name ?? "")));
+  const selected = geminiGroups.length ? geminiGroups : groups;
+  const limits: Limit[] = [];
+  for (const rawGroup of selected) {
+    const group = record(rawGroup);
+    const groupName = typeof group.name === "string" ? group.name : "";
+    const prefix = selected.length > 1 && groupName ? `${groupName} ` : "";
+    const buckets = Array.isArray(group.buckets)
+      ? [...group.buckets].sort((a, b) => geminiWindowOrder(record(a).window) - geminiWindowOrder(record(b).window))
+      : [];
+    for (const rawBucket of buckets) {
+      const bucket = record(rawBucket);
+      const duration =
+        bucket.window === "5h"
+          ? "5h"
+          : bucket.window === "weekly"
+            ? "1w"
+            : typeof bucket.window === "string" && bucket.window
+              ? bucket.window
+              : String(bucket.name ?? "Limit");
+      const remaining =
+        typeof bucket.remaining_fraction === "number" && Number.isFinite(bucket.remaining_fraction)
+          ? Math.min(1, Math.max(0, bucket.remaining_fraction))
+          : undefined;
+      limits.push({
+        id: typeof bucket.id === "string" && bucket.id ? bucket.id : `gemini-${limits.length}`,
+        label: `${prefix}${duration}`,
+        percent: remaining === undefined ? undefined : (1 - remaining) * 100,
+        resetsAt: date(bucket.reset_time),
+      });
+    }
+  }
+  if (!limits.length) throw new Error("No Gemini limits returned. Sign in with agy.");
   return limits;
 }
 export function usageText(limit: Limit): string {
